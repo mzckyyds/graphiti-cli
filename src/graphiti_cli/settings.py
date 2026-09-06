@@ -17,7 +17,8 @@ __all__ = [
     "SETTINGS_PATH",
     "EmbedderSettings",
     "FalkorDBSettings",
-    "ModelProviderSettings",
+    "LLMSettings",
+    "RerankerSettings",
     "Settings",
     "load_settings",
     "save_settings",
@@ -32,8 +33,8 @@ SETTINGS_PATH = RUNS_DIR / "settings.json"
 # ======================================================================================
 # 配置模型
 # ======================================================================================
-class ModelProviderSettings(BaseModel):
-    """OpenAI 兼容模型服务的连接配置."""
+class LLMSettings(BaseModel):
+    """LLM 服务配置."""
 
     base_url: str = ""
     model: str = ""
@@ -41,10 +42,22 @@ class ModelProviderSettings(BaseModel):
     extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
-class EmbedderSettings(ModelProviderSettings):
+class EmbedderSettings(BaseModel):
     """Embedder 服务配置."""
 
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
     dim: int = 1024
+
+
+class RerankerSettings(BaseModel):
+    """Reranker 服务配置."""
+
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
 class FalkorDBSettings(BaseModel):
@@ -60,9 +73,9 @@ class FalkorDBSettings(BaseModel):
 class Settings(BaseModel):
     """graphiti-cli 全局配置."""
 
-    llm: ModelProviderSettings = Field(default_factory=ModelProviderSettings)
+    llm: LLMSettings = Field(default_factory=LLMSettings)
     embedder: EmbedderSettings = Field(default_factory=EmbedderSettings)
-    reranker: ModelProviderSettings = Field(default_factory=ModelProviderSettings)
+    reranker: RerankerSettings = Field(default_factory=RerankerSettings)
     falkordb: FalkorDBSettings = Field(default_factory=FalkorDBSettings)
 
 

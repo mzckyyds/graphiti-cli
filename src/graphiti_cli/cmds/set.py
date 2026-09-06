@@ -14,7 +14,15 @@ import typer
 from graphiti_cli.settings import SETTINGS_PATH, load_settings, save_settings
 
 if TYPE_CHECKING:
-    from graphiti_cli.settings import FalkorDBSettings, ModelProviderSettings
+    from graphiti_cli.settings import (
+        EmbedderSettings,
+        FalkorDBSettings,
+        LLMSettings,
+        RerankerSettings,
+    )
+
+    # 三个模型服务配置段的公共字段类型, 即 base_url/model/api_key 三项
+    ProviderSettings = LLMSettings | EmbedderSettings | RerankerSettings
 
 __all__ = [
     "app",
@@ -71,11 +79,10 @@ def _parse_extra_body(*, raw: str) -> dict[str, Any]:
 
 def _update_model_provider(
     *,
-    section: ModelProviderSettings,
+    section: ProviderSettings,
     base_url: str | None,
     model: str | None,
     api_key: str | None,
-    extra_body: dict[str, Any] | None,
 ) -> None:
     """把命令行传入的选项增量更新到模型服务配置.
 
@@ -84,7 +91,6 @@ def _update_model_provider(
         base_url: OpenAI 兼容端点, None 表示不更新.
         model: 模型名, None 表示不更新.
         api_key: API Key, None 表示不更新.
-        extra_body: 额外请求体字段, None 表示不更新.
 
     """
     if base_url is not None:
@@ -93,23 +99,28 @@ def _update_model_provider(
         section.model = model
     if api_key is not None:
         section.api_key = api_key
-    if extra_body is not None:
-        section.extra_body = extra_body
 
 
-def _echo_provider(*, section: ModelProviderSettings, name: str) -> None:
+def _echo_provider(
+    *,
+    section: ProviderSettings,
+    name: str,
+    extra_body: dict[str, Any] | None = None,
+) -> None:
     """回显某个模型服务配置段的当前值(api_key 掩码).
 
     Args:
         section: 模型服务配置段.
         name: 配置段名称.
+        extra_body: LLM/Reranker 特有的额外请求体字段, Embedder 不展示.
 
     """
+    suffix = "" if extra_body is None else f", extra_body={extra_body!r}"
     typer.echo(
         f"{name}: base_url={section.base_url!r}, "
         f"model={section.model!r}, "
-        f"api_key={_mask_secret(value=section.api_key)!r}, "
-        f"extra_body={section.extra_body!r}",
+        f"api_key={_mask_secret(value=section.api_key)!r}"
+        f"{suffix}",
     )
 
 
@@ -150,10 +161,15 @@ def set_llm(
         base_url=base_url,
         model=model,
         api_key=api_key,
-        extra_body=None if extra_body is None else _parse_extra_body(raw=extra_body),
     )
+    if extra_body is not None:
+        settings.llm.extra_body = _parse_extra_body(raw=extra_body)
     save_settings(settings=settings)
-    _echo_provider(section=settings.llm, name="llm")
+    _echo_provider(
+        section=settings.llm,
+        name="llm",
+        extra_body=settings.llm.extra_body,
+    )
 
 
 @app.command(name="embedder")
@@ -171,7 +187,6 @@ def set_embedder(
         base_url=base_url,
         model=model,
         api_key=api_key,
-        extra_body=None,
     )
     if dim is not None:
         settings.embedder.dim = dim
@@ -198,10 +213,15 @@ def set_reranker(
         base_url=base_url,
         model=model,
         api_key=api_key,
-        extra_body=None if extra_body is None else _parse_extra_body(raw=extra_body),
     )
+    if extra_body is not None:
+        settings.reranker.extra_body = _parse_extra_body(raw=extra_body)
     save_settings(settings=settings)
-    _echo_provider(section=settings.reranker, name="reranker")
+    _echo_provider(
+        section=settings.reranker,
+        name="reranker",
+        extra_body=settings.reranker.extra_body,
+    )
 
 
 @app.command(name="falkordb")

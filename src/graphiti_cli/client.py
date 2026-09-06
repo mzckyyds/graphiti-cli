@@ -120,14 +120,14 @@ def build_graphiti(
         hint="llm --api-key <KEY>",
     )
     _validate_config(
-        value=cfg.embedder.model,
-        label="embedder.model",
-        hint="embedder --model <NAME>",
-    )
-    _validate_config(
         value=cfg.embedder.base_url,
         label="embedder.base_url",
         hint="embedder --base-url <URL>",
+    )
+    _validate_config(
+        value=cfg.embedder.model,
+        label="embedder.model",
+        hint="embedder --model <NAME>",
     )
     _validate_config(
         value=cfg.embedder.api_key,

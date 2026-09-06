@@ -1,4 +1,4 @@
-"""``set`` 子命令: 分组配置 LLM/Embedding/Reranker 与 FalkorDB.
+"""``set`` 子命令: 分组配置 LLM/Embedder/Reranker 与 FalkorDB.
 
 每个命令只更新显式传入的选项, 其余字段保持不变, 支持多次增量配置.
 """
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import typer
 
@@ -46,12 +46,36 @@ def _mask_secret(*, value: str) -> str:
     return f"{value[:4]}***"
 
 
+def _parse_extra_body(*, raw: str) -> dict[str, Any]:
+    """解析 --extra-body 传入的 JSON 字符串.
+
+    Args:
+        raw: JSON 对象字符串, 如 ``'{"enable_thinking": false}'``.
+
+    Returns:
+        解析后的字典.
+
+    Raises:
+        BadParameter: 不是合法的 JSON 对象时.
+
+    """
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise typer.BadParameter(f"--extra-body 不是合法 JSON: {e}") from e
+    if not isinstance(value, dict):
+        raise typer.BadParameter("--extra-body 必须是 JSON 对象")
+    # NOTE: JSON 对象的 key 恒为字符串, json.loads 返回 Any 需显式收窄
+    return cast("dict[str, Any]", value)
+
+
 def _update_model_provider(
     *,
     section: ModelProviderSettings,
     base_url: str | None,
     model: str | None,
     api_key: str | None,
+    extra_body: dict[str, Any] | None,
 ) -> None:
     """把命令行传入的选项增量更新到模型服务配置.
 
@@ -60,6 +84,7 @@ def _update_model_provider(
         base_url: OpenAI 兼容端点, None 表示不更新.
         model: 模型名, None 表示不更新.
         api_key: API Key, None 表示不更新.
+        extra_body: 额外请求体字段, None 表示不更新.
 
     """
     if base_url is not None:
@@ -68,6 +93,8 @@ def _update_model_provider(
         section.model = model
     if api_key is not None:
         section.api_key = api_key
+    if extra_body is not None:
+        section.extra_body = extra_body
 
 
 def _echo_provider(*, section: ModelProviderSettings, name: str) -> None:
@@ -81,7 +108,8 @@ def _echo_provider(*, section: ModelProviderSettings, name: str) -> None:
     typer.echo(
         f"{name}: base_url={section.base_url!r}, "
         f"model={section.model!r}, "
-        f"api_key={_mask_secret(value=section.api_key)!r}",
+        f"api_key={_mask_secret(value=section.api_key)!r}, "
+        f"extra_body={section.extra_body!r}",
     )
 
 
@@ -109,6 +137,11 @@ def set_llm(
     base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
     model: str | None = typer.Option(None, "--model", help="LLM 模型名"),
     api_key: str | None = typer.Option(None, "--api-key", help="API Key"),
+    extra_body: str | None = typer.Option(
+        None,
+        "--extra-body",
+        help="额外请求体字段(JSON 对象), 如 '{\"enable_thinking\": false}'",
+    ),
 ) -> None:
     """配置 LLM 服务, 未传入的选项保持不变."""
     settings = load_settings()
@@ -117,31 +150,33 @@ def set_llm(
         base_url=base_url,
         model=model,
         api_key=api_key,
+        extra_body=None if extra_body is None else _parse_extra_body(raw=extra_body),
     )
     save_settings(settings=settings)
     _echo_provider(section=settings.llm, name="llm")
 
 
-@app.command(name="embedding")
-def set_embedding(
+@app.command(name="embedder")
+def set_embedder(
     *,
     base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
     model: str | None = typer.Option(None, "--model", help="Embedding 模型名"),
     api_key: str | None = typer.Option(None, "--api-key", help="API Key"),
     dim: int | None = typer.Option(None, "--dim", help="向量维度, 默认 1024"),
 ) -> None:
-    """配置 Embedding 服务, 未传入的选项保持不变."""
+    """配置 Embedder 服务, 未传入的选项保持不变."""
     settings = load_settings()
     _update_model_provider(
-        section=settings.embedding,
+        section=settings.embedder,
         base_url=base_url,
         model=model,
         api_key=api_key,
+        extra_body=None,
     )
     if dim is not None:
-        settings.embedding.dim = dim
+        settings.embedder.dim = dim
     save_settings(settings=settings)
-    _echo_provider(section=settings.embedding, name="embedding")
+    _echo_provider(section=settings.embedder, name="embedder")
 
 
 @app.command(name="reranker")
@@ -150,6 +185,11 @@ def set_reranker(
     base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
     model: str | None = typer.Option(None, "--model", help="Reranker 模型名"),
     api_key: str | None = typer.Option(None, "--api-key", help="API Key"),
+    extra_body: str | None = typer.Option(
+        None,
+        "--extra-body",
+        help="额外请求体字段(JSON 对象), 如 '{\"enable_thinking\": false}'",
+    ),
 ) -> None:
     """配置 Reranker 服务, 未传入的选项保持不变."""
     settings = load_settings()
@@ -158,6 +198,7 @@ def set_reranker(
         base_url=base_url,
         model=model,
         api_key=api_key,
+        extra_body=None if extra_body is None else _parse_extra_body(raw=extra_body),
     )
     save_settings(settings=settings)
     _echo_provider(section=settings.reranker, name="reranker")
@@ -206,7 +247,7 @@ def set_show(
     settings = load_settings()
     data: dict[str, Any] = settings.model_dump()
     if not reveal:
-        for name in ("llm", "embedding", "reranker"):
+        for name in ("llm", "embedder", "reranker"):
             data[name]["api_key"] = _mask_secret(value=data[name]["api_key"])
         data["falkordb"]["password"] = _mask_secret(value=data["falkordb"]["password"])
     typer.echo(f"# settings path: {SETTINGS_PATH}")

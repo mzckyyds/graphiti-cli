@@ -32,8 +32,11 @@ uv run graphiti-cli --help
 ```bash
 # 模型服务(OpenAI 兼容端点)
 uv run graphiti-cli set llm --base-url <URL> --model <NAME> --api-key <KEY>
-uv run graphiti-cli set embedding --base-url <URL> --model <NAME> --api-key <KEY> --dim 1024
+uv run graphiti-cli set embedder --base-url <URL> --model <NAME> --api-key <KEY> --dim 1024
 uv run graphiti-cli set reranker --base-url <URL> --model <NAME> --api-key <KEY>
+
+# LLM/Reranker 可注入额外请求体字段(如 qwen3 关闭深度思考)
+uv run graphiti-cli set llm --extra-body '{"enable_thinking": false}'
 
 # FalkorDB(Redis 协议)
 uv run graphiti-cli set falkordb --host localhost --port 6379 --database _
@@ -102,15 +105,15 @@ uv run graphiti-cli edge delete <EDGE_UUID>
 uv run graphiti-cli triplet add "源实体" "关系" "事实描述" "目标实体"
 ```
 
-## 图分区(group_id)
+## 图分区(group\_id)
 
-`--group-id` 用于多租户/多场景隔离. **FalkorDB 下每个 group_id 对应一张同名图**:
+`--group-id` 用于多租户/多场景隔离. **FalkorDB 下每个 group\_id 对应一张同名图**:
 
-- `episode add` 写入时指定 `--group-id X` 后, 数据落在图 `X`;
-- `episode/node/edge` 的按 UUID 直读与改删、以及 `node/edge add`, 都需要
+* `episode add` 写入时指定 `--group-id X` 后, 数据落在图 `X`;
+* `episode/node/edge` 的按 UUID 直读与改删、以及 `node/edge add`, 都需要
   `--group-id` 与写入时一致, 否则会在默认图里找不到数据;
-- 不传 `--group-id` 时操作默认图(即配置里的 `database`, 通常为 `_`);
-- 新分区首次使用前建议先建索引(可在 Python 中对克隆 driver 后调用
+* 不传 `--group-id` 时操作默认图(即配置里的 `database`, 通常为 `_`);
+* 新分区首次使用前建议先建索引(可在 Python 中对克隆 driver 后调用
   `graphiti.build_indices_and_constraints()`).
 
 所有结果以 JSON 输出, 便于管道处理(`jq` 等).

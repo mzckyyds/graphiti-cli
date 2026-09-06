@@ -1,13 +1,13 @@
-"""graphiti-cli 配置的定义, 读取与写入.
+"""graphiti-cli 配置读写.
 
-配置持久化在 ``~/.graphiti-cli/settings.json``, 由 ``set`` 命令写入,
-其余命令统一从这里读取, 不再依赖环境变量.
+配置持久化在 ``~/.graphiti-cli/settings.json``, 由 ``set`` 命令写入.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,7 @@ from .constants import RUNS_DIR
 
 __all__ = [
     "SETTINGS_PATH",
-    "EmbeddingSettings",
+    "EmbedderSettings",
     "FalkorDBSettings",
     "ModelProviderSettings",
     "Settings",
@@ -38,10 +38,11 @@ class ModelProviderSettings(BaseModel):
     base_url: str = ""
     model: str = ""
     api_key: str = ""
+    extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
-class EmbeddingSettings(ModelProviderSettings):
-    """Embedding 服务配置."""
+class EmbedderSettings(ModelProviderSettings):
+    """Embedder 服务配置."""
 
     dim: int = 1024
 
@@ -60,7 +61,7 @@ class Settings(BaseModel):
     """graphiti-cli 全局配置."""
 
     llm: ModelProviderSettings = Field(default_factory=ModelProviderSettings)
-    embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    embedder: EmbedderSettings = Field(default_factory=EmbedderSettings)
     reranker: ModelProviderSettings = Field(default_factory=ModelProviderSettings)
     falkordb: FalkorDBSettings = Field(default_factory=FalkorDBSettings)
 
@@ -86,7 +87,10 @@ def load_settings() -> Settings:
     return Settings.model_validate(data)
 
 
-def save_settings(*, settings: Settings) -> None:
+def save_settings(
+    *,
+    settings: Settings,
+) -> None:
     """原子写入配置文件, 并收紧文件权限(文件包含 api_key).
 
     Args:

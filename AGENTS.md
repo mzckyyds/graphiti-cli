@@ -18,11 +18,11 @@
 * **质量检查/格式化**：`uv run ruff check .` / `uv run ruff format .`
 * **类型检查**：`uv run pyright`
 * **配置**：
-  * `uv run graphiti-cli set llm --base-url <URL> --model <NAME> --api-key <KEY>`
-  * `uv run graphiti-cli set embedding --base-url <URL> --model <NAME> --api-key <KEY> --dim <N>`
-  * `uv run graphiti-cli set reranker --base-url <URL> --model <NAME> --api-key <KEY>`
+  * `uv run graphiti-cli set llm --base-url <URL> --model <NAME> --api-key <KEY> [--extra-body <JSON>]`
+  * `uv run graphiti-cli set embedder --base-url <URL> --model <NAME> --api-key <KEY> --dim <N>`
+  * `uv run graphiti-cli set reranker --base-url <URL> --model <NAME> --api-key <KEY> [--extra-body <JSON>]`
   * `uv run graphiti-cli set falkordb --host <HOST> --port <PORT> --username <U> --password <P> --database <DB>`
-  * `uv run graphiti-cli set show [--reveal]`（默认掩码 api_key/password）
+  * `uv run graphiti-cli set show [--reveal]`（默认掩码 api\_key/password）
 * **Python 版本**：3.12（在 `.python-version` 中固定）
 
 ## 约定

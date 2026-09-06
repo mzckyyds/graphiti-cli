@@ -1,13 +1,10 @@
-"""graphiti-cli 根命令行.
-
-结构: ``set`` 子命令负责写配置, 其余命令从配置读取后执行.
-"""
+"""graphiti-cli 根命令行."""
 
 from __future__ import annotations
 
 import typer
 
-from graphiti_cli.cmds import edge_cmd, episode_cmd, node_cmd, set_cmd, triplet_cmd
+from graphiti_cli.cmds import config_cmd, edge_cmd, episode_cmd, node_cmd, triplet_cmd
 
 __all__ = [
     "app",
@@ -20,9 +17,9 @@ app = typer.Typer(
 )
 
 app.add_typer(
-    set_cmd,
-    name="set",
-    help="配置 LLM/Embedding/Reranker 与 FalkorDB.",
+    config_cmd,
+    name="config",
+    help="查看与写入配置(LLM/Embedder/Reranker/FalkorDB).",
 )
 app.add_typer(
     episode_cmd,

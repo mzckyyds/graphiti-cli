@@ -1,9 +1,9 @@
 """Graphiti 实例的构建逻辑, 供各子命令复用.
 
 模型全部走 OpenAI 兼容端点, 配置统一从 ``~/.graphiti-cli/settings.json`` 读取:
-- LLM:       通用 OpenAIGenericClient(json_schema 结构化输出, extra_body 可注入)
+- LLM:      通用 OpenAIGenericClient(json_schema 结构化输出, extra_body 可注入)
 - Embedder: 通用 OpenAIEmbedder
-- Reranker:  通用 OpenAIRerankerClient(logprobs 零样本打分)
+- Reranker: 通用 OpenAIRerankerClient(logprobs 零样本打分, extra_body 可注入)
 """
 
 from __future__ import annotations
@@ -25,9 +25,6 @@ __all__ = [
 ]
 
 
-# ======================================================================================
-# OpenAI 兼容客户端
-# ======================================================================================
 def _validate_config(
     *,
     value: str,
@@ -46,7 +43,9 @@ def _validate_config(
 
     """
     if len(value.strip()) == 0:
-        raise ValueError(f"配置缺失: {label!r}, 请先运行 graphiti-cli set {hint}")
+        raise ValueError(
+            f"配置缺失: {label!r}, 请先运行 graphiti-cli config set {hint}"
+        )
 
 
 def _build_openai_client(

@@ -1,7 +1,7 @@
 """episode/node/edge/triplet 各命令共用的工具函数.
 
 约定: 每个命令用 ``run_async`` 执行一段接收 Graphiti 实例的协程,
-结果统一以 JSON 输出(与 ``set show`` 风格一致).
+结果统一以 JSON 输出(与 ``config show`` 风格一致).
 """
 
 from __future__ import annotations

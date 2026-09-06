@@ -1,17 +1,18 @@
-"""``set`` 子命令: 分组配置 LLM/Embedder/Reranker 与 FalkorDB.
+"""``config set`` 子命令.
 
-每个命令只更新显式传入的选项, 其余字段保持不变, 支持多次增量配置.
+只更新显式传入的选项, 其余字段保持不变.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import typer
 
-from graphiti_cli.settings import SETTINGS_PATH, load_settings, save_settings
+from graphiti_cli.settings import load_settings, save_settings
+
+from ._base import mask_secret
 
 if TYPE_CHECKING:
     from graphiti_cli.settings import (
@@ -29,31 +30,14 @@ __all__ = [
 ]
 
 
-logger = logging.getLogger(__name__)
-
 app = typer.Typer(
-    help="配置模型服务与 FalkorDB 连接, 写入 ~/.graphiti-cli/settings.json.",
+    help="写入单项配置, 未传入的选项保持不变.",
 )
 
 
 # ======================================================================================
 # 内部工具
 # ======================================================================================
-def _mask_secret(*, value: str) -> str:
-    """掩码敏感值, 只保留前 4 位.
-
-    Args:
-        value: 原始值.
-
-    Returns:
-        掩码后的展示值, 空值原样返回.
-
-    """
-    if not value:
-        return ""
-    return f"{value[:4]}***"
-
-
 def _parse_extra_body(*, raw: str) -> dict[str, Any]:
     """解析 --extra-body 传入的 JSON 字符串.
 
@@ -119,7 +103,7 @@ def _echo_provider(
     typer.echo(
         f"{name}: base_url={section.base_url!r}, "
         f"model={section.model!r}, "
-        f"api_key={_mask_secret(value=section.api_key)!r}"
+        f"api_key={mask_secret(value=section.api_key)!r}"
         f"{suffix}",
     )
 
@@ -134,13 +118,13 @@ def _echo_falkordb(*, section: FalkorDBSettings) -> None:
     typer.echo(
         f"falkordb: host={section.host!r}, port={section.port!r}, "
         f"username={section.username!r}, "
-        f"password={_mask_secret(value=section.password)!r}, "
+        f"password={mask_secret(value=section.password)!r}, "
         f"database={section.database!r}",
     )
 
 
 # ======================================================================================
-# 配置命令
+# 写入配置
 # ======================================================================================
 @app.command(name="llm")
 def set_llm(
@@ -252,23 +236,3 @@ def set_falkordb(
         section.database = database
     save_settings(settings=settings)
     _echo_falkordb(section=section)
-
-
-@app.command(name="show")
-def set_show(
-    *,
-    reveal: bool = typer.Option(
-        False,  # noqa: FBT003
-        "--reveal",
-        help="显示完整 api_key/password",
-    ),
-) -> None:
-    """显示当前配置, 默认掩码 api_key/password."""
-    settings = load_settings()
-    data: dict[str, Any] = settings.model_dump()
-    if not reveal:
-        for name in ("llm", "embedder", "reranker"):
-            data[name]["api_key"] = _mask_secret(value=data[name]["api_key"])
-        data["falkordb"]["password"] = _mask_secret(value=data["falkordb"]["password"])
-    typer.echo(f"# settings path: {SETTINGS_PATH}")
-    typer.echo(json.dumps(data, ensure_ascii=False, indent=2))

@@ -1,6 +1,6 @@
 """graphiti-cli 配置读写.
 
-配置持久化在 ``~/.graphiti-cli/settings.json``, 由 ``set`` 命令写入.
+配置持久化在 ``~/.graphiti-cli/settings.json``, 由 ``config set`` 命令写入.
 """
 
 from __future__ import annotations

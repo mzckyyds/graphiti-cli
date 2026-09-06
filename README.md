@@ -31,18 +31,18 @@ uv run graphiti-cli --help
 
 ```bash
 # 模型服务(OpenAI 兼容端点)
-uv run graphiti-cli set llm --base-url <URL> --model <NAME> --api-key <KEY>
-uv run graphiti-cli set embedder --base-url <URL> --model <NAME> --api-key <KEY> --dim 1024
-uv run graphiti-cli set reranker --base-url <URL> --model <NAME> --api-key <KEY>
+uv run graphiti-cli config set llm --base-url <URL> --model <NAME> --api-key <KEY>
+uv run graphiti-cli config set embedder --base-url <URL> --model <NAME> --api-key <KEY> --dim 1024
+uv run graphiti-cli config set reranker --base-url <URL> --model <NAME> --api-key <KEY>
 
 # LLM/Reranker 可注入额外请求体字段(如 qwen3 关闭深度思考)
-uv run graphiti-cli set llm --extra-body '{"enable_thinking": false}'
+uv run graphiti-cli config set llm --extra-body '{"enable_thinking": false}'
 
 # FalkorDB(Redis 协议)
-uv run graphiti-cli set falkordb --host localhost --port 6379 --database _
+uv run graphiti-cli config set falkordb --host localhost --port 6379 --database _
 
 # 查看当前配置(api_key/password 默认掩码)
-uv run graphiti-cli set show
+uv run graphiti-cli config show
 ```
 
 配置持久化在 `~/.graphiti-cli/settings.json`.

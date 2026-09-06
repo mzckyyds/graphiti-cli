@@ -36,7 +36,10 @@ __all__ = [
 # ======================================================================================
 # 内部工具
 # ======================================================================================
-def _parse_extra_body(*, raw: str) -> dict[str, Any]:
+def _parse_extra_body(
+    *,
+    raw: str,
+) -> dict[str, Any]:
     """解析 --extra-body 传入的 JSON 字符串.
 
     Args:
@@ -106,7 +109,10 @@ def _echo_provider(
     )
 
 
-def _echo_falkordb(*, section: FalkorDBSettings) -> None:
+def _echo_falkordb(
+    *,
+    section: FalkorDBSettings,
+) -> None:
     """回显 FalkorDB 配置段(password 掩码).
 
     Args:
@@ -126,9 +132,21 @@ def _echo_falkordb(*, section: FalkorDBSettings) -> None:
 # ======================================================================================
 def set_llm(
     *,
-    base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
-    model: str | None = typer.Option(None, "--model", help="LLM 模型名"),
-    api_key: str | None = typer.Option(None, "--api-key", help="API Key"),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        help="OpenAI 兼容端点地址",
+    ),
+    model: str | None = typer.Option(
+        None,
+        "--model",
+        help="LLM 模型名",
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="API Key",
+    ),
     extra_body: str | None = typer.Option(
         None,
         "--extra-body",
@@ -158,10 +176,26 @@ def set_llm(
 # ======================================================================================
 def set_embedder(
     *,
-    base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
-    model: str | None = typer.Option(None, "--model", help="Embedding 模型名"),
-    api_key: str | None = typer.Option(None, "--api-key", help="API Key"),
-    dim: int | None = typer.Option(None, "--dim", help="向量维度, 默认 1024"),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        help="OpenAI 兼容端点地址",
+    ),
+    model: str | None = typer.Option(
+        None,
+        "--model",
+        help="Embedding 模型名",
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="API Key",
+    ),
+    dim: int | None = typer.Option(
+        None,
+        "--dim",
+        help="向量维度, 默认 1024",
+    ),
 ) -> None:
     """配置 Embedder 服务, 未传入的选项保持不变."""
     settings = load_settings()
@@ -182,9 +216,21 @@ def set_embedder(
 # ======================================================================================
 def set_reranker(
     *,
-    base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
-    model: str | None = typer.Option(None, "--model", help="Reranker 模型名"),
-    api_key: str | None = typer.Option(None, "--api-key", help="API Key"),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        help="OpenAI 兼容端点地址",
+    ),
+    model: str | None = typer.Option(
+        None,
+        "--model",
+        help="Reranker 模型名",
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="API Key",
+    ),
     extra_body: str | None = typer.Option(
         None,
         "--extra-body",
@@ -214,15 +260,31 @@ def set_reranker(
 # ======================================================================================
 def set_falkordb(
     *,
-    host: str | None = typer.Option(None, "--host", help="FalkorDB 主机名"),
-    port: int | None = typer.Option(None, "--port", help="FalkorDB 端口"),
+    host: str | None = typer.Option(
+        None,
+        "--host",
+        help="FalkorDB 主机名",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        help="FalkorDB 端口",
+    ),
     username: str | None = typer.Option(
-        None, "--username", help="用户名, 无鉴权时传空字符串"
+        None,
+        "--username",
+        help="用户名, 无鉴权时传空字符串",
     ),
     password: str | None = typer.Option(
-        None, "--password", help="密码, 无鉴权时传空字符串"
+        None,
+        "--password",
+        help="密码, 无鉴权时传空字符串",
     ),
-    database: str | None = typer.Option(None, "--database", help="图名"),
+    database: str | None = typer.Option(
+        None,
+        "--database",
+        help="图名",
+    ),
 ) -> None:
     """配置 FalkorDB 连接, 未传入的选项保持不变."""
     settings = load_settings()

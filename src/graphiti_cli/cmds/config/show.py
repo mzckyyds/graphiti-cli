@@ -1,4 +1,4 @@
-"""``config show`` 子命令.
+"""CLI: ``config show``.
 
 展示当前配置, 默认掩码 api_key/password.
 """
@@ -15,11 +15,14 @@ from graphiti_cli.settings import SETTINGS_PATH, load_settings
 from ._base import mask_secret
 
 __all__ = [
-    "show",
+    "show_config",
 ]
 
 
-def show(
+# ======================================================================================
+# CLI: ``config show``
+# ======================================================================================
+def show_config(
     *,
     reveal: bool = typer.Option(
         False,  # noqa: FBT003

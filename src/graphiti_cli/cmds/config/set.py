@@ -1,4 +1,4 @@
-"""``config set`` 子命令.
+"""CLI: ``config set {llm|embedder|reranker|falkordb}``.
 
 只更新显式传入的选项, 其余字段保持不变.
 """
@@ -26,13 +26,11 @@ if TYPE_CHECKING:
     ProviderSettings = LLMSettings | EmbedderSettings | RerankerSettings
 
 __all__ = [
-    "app",
+    "set_embedder",
+    "set_falkordb",
+    "set_llm",
+    "set_reranker",
 ]
-
-
-app = typer.Typer(
-    help="写入单项配置, 未传入的选项保持不变.",
-)
 
 
 # ======================================================================================
@@ -124,9 +122,8 @@ def _echo_falkordb(*, section: FalkorDBSettings) -> None:
 
 
 # ======================================================================================
-# 写入配置
+# CLI: ``config set llm``
 # ======================================================================================
-@app.command(name="llm")
 def set_llm(
     *,
     base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
@@ -156,7 +153,9 @@ def set_llm(
     )
 
 
-@app.command(name="embedder")
+# ======================================================================================
+# CLI: ``config set embedder``
+# ======================================================================================
 def set_embedder(
     *,
     base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
@@ -178,7 +177,9 @@ def set_embedder(
     _echo_provider(section=settings.embedder, name="embedder")
 
 
-@app.command(name="reranker")
+# ======================================================================================
+# CLI: ``config set reranker``
+# ======================================================================================
 def set_reranker(
     *,
     base_url: str | None = typer.Option(None, "--base-url", help="OpenAI 兼容端点地址"),
@@ -208,7 +209,9 @@ def set_reranker(
     )
 
 
-@app.command(name="falkordb")
+# ======================================================================================
+# CLI: ``config set falkordb``
+# ======================================================================================
 def set_falkordb(
     *,
     host: str | None = typer.Option(None, "--host", help="FalkorDB 主机名"),

@@ -1,7 +1,4 @@
-"""``episode`` 子命令: 管理 episodes.
-
-对应 MCP 的 add_memory/get_episodes/delete_episode/get_episode_entities,
-patch 为 CLI 扩展(基于 ``EpisodicNode.save``).
+"""CLI: ``graphiti-cli episode {add|show|patch|delete|nodes|edges}``.
 
 注意: FalkorDB 下每个 group_id 对应一张同名图, 按 UUID 直读/改删时
 需用 ``--group-id`` 指明分区(与写入时一致).
@@ -47,12 +44,20 @@ app = typer.Typer(
 )
 
 
+# ======================================================================================
+# CLI: ``graphiti-cli episode add``
+# ======================================================================================
 @app.command(name="add")
-def add(  # noqa: PLR0913
-    name: str = typer.Argument(..., help="episode 名称"),
+def add_episode(  # noqa: PLR0913
     *,
+    name: str = typer.Argument(
+        ...,
+        help="episode 名称",
+    ),
     content: str = typer.Option(
-        ..., "--content", help="episode 正文, 传 '-' 时从 stdin 读取"
+        ...,
+        "--content",
+        help="episode 正文, 传 '-' 时从 stdin 读取",
     ),
     source: EpisodeType = typer.Option(
         EpisodeType.text,
@@ -61,14 +66,24 @@ def add(  # noqa: PLR0913
         help="内容类型: text/json/message",
     ),
     source_description: str = typer.Option(
-        "", "--source-description", help="数据来源描述"
+        "",
+        "--source-description",
+        help="数据来源描述",
     ),
     group_id: str | None = typer.Option(
-        None, "--group-id", help="图分区 ID, 缺省为默认分区"
+        None,
+        "--group-id",
+        help="图分区 ID, 缺省为默认分区",
     ),
-    uuid_: str | None = typer.Option(None, "--uuid", help="自定义 episode UUID"),
+    uuid: str | None = typer.Option(
+        None,
+        "--uuid",
+        help="自定义 episode UUID",
+    ),
     reference_time: str | None = typer.Option(
-        None, "--reference-time", help="ISO8601 参考时间, 缺省为当前 UTC 时间"
+        None,
+        "--reference-time",
+        help="ISO8601 参考时间, 缺省为当前 UTC 时间",
     ),
     update_communities: bool = typer.Option(
         False,  # noqa: FBT003
@@ -76,7 +91,9 @@ def add(  # noqa: PLR0913
         help="写入后同步更新社区摘要",
     ),
     instructions: str | None = typer.Option(
-        None, "--instructions", help="自定义抽取指令, 引导实体/关系抽取"
+        None,
+        "--instructions",
+        help="自定义抽取指令, 引导实体/关系抽取",
     ),
 ) -> None:
     """添加 episode 并触发实体/关系抽取, 是向图谱写入信息的主要入口."""
@@ -95,7 +112,7 @@ def add(  # noqa: PLR0913
             source_description=source_description,
             reference_time=reference_dt,
             group_id=group_id,
-            uuid=uuid_,
+            uuid=uuid,
             update_communities=update_communities,
             custom_extraction_instructions=instructions,
         )
@@ -110,14 +127,27 @@ def add(  # noqa: PLR0913
     )
 
 
+# ======================================================================================
+# CLI: ``graphiti-cli episode show``
+# ======================================================================================
 @app.command(name="show")
 def show(
-    uuid: str | None = typer.Argument(None, help="episode UUID, 省略时列出 episodes"),
     *,
-    group_id: list[str] | None = typer.Option(
-        None, "--group-id", help="图分区 ID, 可多次传入; 单查 UUID 时取第一个"
+    uuid: str | None = typer.Argument(
+        None,
+        help="episode UUID, 省略时列出 episodes",
     ),
-    limit: int = typer.Option(10, "--limit", min=1, help="列出时的最大条数"),
+    group_id: list[str] | None = typer.Option(
+        None,
+        "--group-id",
+        help="图分区 ID, 可多次传入; 单查 UUID 时取第一个",
+    ),
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        min=1,
+        help="列出时的最大条数",
+    ),
 ) -> None:
     """查看单个 episode(传 UUID)或按分区列出 episodes(省略 UUID)."""
     if uuid is not None:
@@ -148,22 +178,40 @@ def show(
     echo_json(data=dump_models(models=episodes))
 
 
+# ======================================================================================
+# CLI: ``graphiti-cli episode patch``
+# ======================================================================================
 @app.command(name="patch")
 def patch(  # noqa: PLR0913
-    uuid: str = typer.Argument(..., help="episode UUID"),
     *,
-    group_id: str | None = typer.Option(
-        None, "--group-id", help="图分区 ID, 需与写入时一致"
+    uuid: str = typer.Argument(
+        ...,
+        help="episode UUID",
     ),
-    name: str | None = typer.Option(None, "--name", help="新名称"),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="图分区 ID, 需与写入时一致",
+    ),
+    name: str | None = typer.Option(
+        None,
+        "--name",
+        help="新名称",
+    ),
     content: str | None = typer.Option(
-        None, "--content", help="新正文, 传 '-' 时从 stdin 读取"
+        None,
+        "--content",
+        help="新正文, 传 '-' 时从 stdin 读取",
     ),
     source_description: str | None = typer.Option(
-        None, "--source-description", help="新数据来源描述"
+        None,
+        "--source-description",
+        help="新数据来源描述",
     ),
     valid_at: str | None = typer.Option(
-        None, "--valid-at", help="ISO8601, 事实发生时间"
+        None,
+        "--valid-at",
+        help="ISO8601, 事实发生时间",
     ),
 ) -> None:
     """增量修改 episode 的描述字段.
@@ -190,12 +238,20 @@ def patch(  # noqa: PLR0913
     echo_json(data=dump_model(model=episode))
 
 
+# ======================================================================================
+# CLI: ``graphiti-cli episode delete``
+# ======================================================================================
 @app.command(name="delete")
 def delete(
-    uuid: str = typer.Argument(..., help="episode UUID"),
     *,
+    uuid: str = typer.Argument(
+        ...,
+        help="episode UUID",
+    ),
     group_id: str | None = typer.Option(
-        None, "--group-id", help="图分区 ID, 需与写入时一致"
+        None,
+        "--group-id",
+        help="图分区 ID, 需与写入时一致",
     ),
 ) -> None:
     """删除 episode, 仅其独有的实体与关系会被级联删除."""
@@ -208,12 +264,20 @@ def delete(
     typer.echo(f"已删除 episode: {uuid}")
 
 
+# ======================================================================================
+# CLI: ``graphiti-cli episode nodes``
+# ======================================================================================
 @app.command(name="nodes")
 def nodes(
-    uuids: list[str] = typer.Argument(..., help="episode UUID, 可传多个"),
     *,
+    uuids: list[str] = typer.Argument(
+        ...,
+        help="episode UUID, 可传多个",
+    ),
     group_id: str | None = typer.Option(
-        None, "--group-id", help="图分区 ID, 需与写入时一致"
+        None,
+        "--group-id",
+        help="图分区 ID, 需与写入时一致",
     ),
 ) -> None:
     """查看 episode 产出的实体节点(溯源查询)."""
@@ -226,12 +290,20 @@ def nodes(
     echo_json(data={"nodes": dump_models(models=result.nodes)})
 
 
+# ======================================================================================
+# CLI: ``graphiti-cli episode edges``
+# ======================================================================================
 @app.command(name="edges")
 def edges(
-    uuids: list[str] = typer.Argument(..., help="episode UUID, 可传多个"),
     *,
+    uuids: list[str] = typer.Argument(
+        ...,
+        help="episode UUID, 可传多个",
+    ),
     group_id: str | None = typer.Option(
-        None, "--group-id", help="图分区 ID, 需与写入时一致"
+        None,
+        "--group-id",
+        help="图分区 ID, 需与写入时一致",
     ),
 ) -> None:
     """查看 episode 产出的关系边(溯源查询)."""

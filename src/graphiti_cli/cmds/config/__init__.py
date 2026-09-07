@@ -1,4 +1,4 @@
-"""CLI: ``config {show|set}``."""
+"""CLI: ``graphiti-cli config {show|set}``."""
 
 import typer
 

@@ -1,4 +1,4 @@
-"""graphiti-cli 各类子命令的统一存放处, 每类命令一个模块."""
+"""CLI: graphiti-cli {config|edge|episode|node|triplet}."""
 
 from .config import app as config_cmd
 from .edge import app as edge_cmd

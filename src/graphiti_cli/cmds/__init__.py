@@ -1,4 +1,4 @@
-"""CLI: graphiti-cli {config|edge|episode|node|triplet}."""
+"""CLI: ``graphiti-cli {config|edge|episode|node|triplet}``."""
 
 from .config import app as config_cmd
 from .edge import app as edge_cmd

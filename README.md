@@ -60,8 +60,12 @@ echo "长正文..." | uv run graphiti-cli episode add "会议纪要" --content -
 uv run graphiti-cli episode show
 uv run graphiti-cli episode show <EPISODE_UUID>...
 
-# 删除(可传多个; 省略 UUID 时删除遍历分区下的全部 episodes)
+# 删除(可传多个; 仅这些 episode 独有的实体与关系会被级联删除)
 uv run graphiti-cli episode delete <EPISODE_UUID>...
+
+# 清空分区下的全部 episodes(需显式 --all 确认, 不能与 UUID 同时使用)
+uv run graphiti-cli episode delete --all
+uv run graphiti-cli episode delete --all --group-id <GROUP_ID>
 
 # 溯源: 查看 episode 产出的实体节点 / 关系边
 uv run graphiti-cli episode nodes <EPISODE_UUID>...

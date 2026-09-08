@@ -291,15 +291,27 @@ def delete_episodes(
     *,
     uuid: list[str] | None = typer.Argument(
         None,
-        help="episode UUID, 可传多个; 省略时删除分区下的全部 episodes",
+        help="episode UUID, 可传多个; 省略时改传 --all 以删除分区下的全部 episodes",
     ),
     group_id: list[str] | None = typer.Option(
         None,
         "--group-id",
         help="图分区 ID, 可传多个; 缺省为默认分区",
     ),
+    all_episodes: bool = typer.Option(
+        False,  # noqa: FBT003
+        "--all",
+        help="删除分区下的全部 episodes, 不能与 --uuid 同时使用",
+    ),
 ) -> None:
     """删除 episode, 仅其独有的实体与关系会被级联删除."""
+    if all_episodes and uuid:
+        msg = "--all 不能与 --uuid 同时使用"
+        raise typer.BadParameter(msg)
+    if not all_episodes and not uuid:
+        msg = "批量删除分区下全部 episodes 需显式传入 --all 确认"
+        raise typer.BadParameter(msg)
+
     uuids: list[str] | None = uuid
     group_ids: list[str | None] = list(group_id) if group_id else [None]
 
@@ -321,10 +333,12 @@ def delete_episodes(
         for single_uuid in uuids:
             if single_uuid not in found:
                 _warn_missing_uuid(uuid=single_uuid)
-    if deleted:
-        typer.echo(f"已删除 episode: {', '.join(deleted)}")
-    else:
+    if not deleted:
         typer.echo("没有可删除的 episode")
+    elif all_episodes:
+        typer.echo(f"已删除分区下的全部 episodes, 共 {len(deleted)} 个")
+    else:
+        typer.echo(f"已删除 episode: {', '.join(deleted)}")
 
 
 # ======================================================================================

@@ -247,7 +247,7 @@ def add_episode(  # noqa: PLR0913
 # CLI: ``graphiti-cli episode show``
 # ======================================================================================
 @app.command(name="show")
-def show(
+def show_episodes(
     *,
     uuid: list[str] | None = typer.Argument(
         None,
@@ -287,7 +287,7 @@ def show(
 # CLI: ``graphiti-cli episode delete``
 # ======================================================================================
 @app.command(name="delete")
-def delete(
+def delete_episodes(
     *,
     uuid: list[str] | None = typer.Argument(
         None,
@@ -331,7 +331,7 @@ def delete(
 # CLI: ``graphiti-cli episode nodes``
 # ======================================================================================
 @app.command(name="nodes")
-def nodes(
+def show_episode_nodes(
     *,
     uuid: list[str] = typer.Argument(
         ...,
@@ -360,7 +360,7 @@ def nodes(
 # CLI: ``graphiti-cli episode edges``
 # ======================================================================================
 @app.command(name="edges")
-def edges(
+def show_episode_edges(
     *,
     uuid: list[str] = typer.Argument(
         ...,

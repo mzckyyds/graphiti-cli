@@ -15,7 +15,7 @@
 | `get_entity_edge` | `graphiti-cli edge show` |
 | `delete_entity_edge` | `graphiti-cli edge delete` |
 | `add_triplet` | `graphiti-cli triplet add` |
-| `<未提供>` | `episode patch` / `node add` / `node show` / `node patch` / `node delete` / `edge add` / `edge patch` |
+| `<未提供>` | `node add` / `node show` / `node patch` / `node delete` / `edge add` / `edge patch` |
 
 `patch` 系列与 `node`/`edge` 的直写增删改是 CLI 扩展, 基于 graphiti-core 的模型
 `save()`/`delete()` 实现, 不经过 LLM 抽取.
@@ -56,15 +56,12 @@ uv run graphiti-cli config show
 uv run graphiti-cli episode add "会议纪要" --content "正文..." --source text
 echo "长正文..." | uv run graphiti-cli episode add "会议纪要" --content -
 
-# 列出 / 查看单个
+# 列出 / 查看(可传多个 UUID)
 uv run graphiti-cli episode show
-uv run graphiti-cli episode show <EPISODE_UUID>
+uv run graphiti-cli episode show <EPISODE_UUID>...
 
-# 修改描述字段(不会触发重新抽取; 需重建图谱请删除后重新添加)
-uv run graphiti-cli episode patch <EPISODE_UUID> --name "新名称"
-
-# 删除(仅该 episode 独有的实体与关系会被级联删除)
-uv run graphiti-cli episode delete <EPISODE_UUID>
+# 删除(可传多个; 省略 UUID 时删除遍历分区下的全部 episodes)
+uv run graphiti-cli episode delete <EPISODE_UUID>...
 
 # 溯源: 查看 episode 产出的实体节点 / 关系边
 uv run graphiti-cli episode nodes <EPISODE_UUID>...
@@ -110,9 +107,10 @@ uv run graphiti-cli triplet add "源实体" "关系" "事实描述" "目标实�
 `--group-id` 用于多租户/多场景隔离. **FalkorDB 下每个 group\_id 对应一张同名图**:
 
 * `episode add` 写入时指定 `--group-id X` 后, 数据落在图 `X`;
-* `episode/node/edge` 的按 UUID 直读与改删、以及 `node/edge add`, 都需要
-  `--group-id` 与写入时一致, 否则会在默认图里找不到数据;
-* 不传 `--group-id` 时操作默认图(即配置里的 `database`, 通常为 `_`);
+* 不传 `--group-id` 时使用默认分区(group_id 为 `_`, 即配置里的
+  `database`); `episode/node/edge` 的按 UUID 直读与改删、以及
+  `node/edge add`, 都需要 `--group-id` 与写入时一致, 否则会在默认
+  分区里找不到数据;
 * 新分区首次使用前建议先建索引(可在 Python 中对克隆 driver 后调用
   `graphiti.build_indices_and_constraints()`).
 

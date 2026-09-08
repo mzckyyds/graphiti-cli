@@ -10,18 +10,14 @@ __all__ = [
 ]
 
 app = typer.Typer(
-    help="查看与写入 ~/.graphiti-cli/settings.json.",
+    help="读写配置文件(~/.graphiti-cli/settings.json).",
     no_args_is_help=True,
 )
 
-# ======================================================================================
-# config show
-# ======================================================================================
+# CLI: ``graphiti-cli config show``
 app.command(name="show")(show_config)
 
-# ======================================================================================
-# config set
-# ======================================================================================
+# CLI: ``graphiti-cli config set``
 set_cmd = typer.Typer(help="写入单项配置, 未传入的选项保持不变.")
 set_cmd.command(name="llm")(set_llm)
 set_cmd.command(name="embedder")(set_embedder)

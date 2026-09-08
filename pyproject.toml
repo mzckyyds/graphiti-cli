@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-graphiti-cli = "graphiti_cli.cli:app"
+graphiti-cli = "graphiti_cli.__main__:app"
 
 [build-system]
 requires = ["hatchling"]

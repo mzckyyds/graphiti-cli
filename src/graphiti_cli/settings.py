@@ -92,9 +92,7 @@ def load_settings() -> Settings:
 
     """
     if not SETTINGS_PATH.exists():
-        logger.debug(
-            "Settings file not found, use defaults: path=%r", str(SETTINGS_PATH)
-        )
+        logger.debug("配置文件不存在, 使用默认配置: path=%r", str(SETTINGS_PATH))
         return Settings()
     data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
     return Settings.model_validate(data)
@@ -115,4 +113,4 @@ def save_settings(
     tmp_path.write_text(settings.model_dump_json(indent=2), encoding="utf-8")
     tmp_path.chmod(0o600)
     tmp_path.replace(SETTINGS_PATH)
-    logger.debug("Settings saved: path=%r", str(SETTINGS_PATH))
+    logger.debug("配置已保存: path=%r", str(SETTINGS_PATH))

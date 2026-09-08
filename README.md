@@ -7,15 +7,15 @@
 | MCP 工具 | CLI 命令 |
 | --- | --- |
 | `add_memory` | `graphiti-cli episode add` |
-| `get_episodes` | `graphiti-cli episode show` |
+| `get_episodes` | `graphiti-cli episode get` / `episode list` |
 | `delete_episode` | `graphiti-cli episode delete` |
-| `get_episode_entities` | `graphiti-cli episode nodes` / `episode edges` |
-| `search_nodes` | `graphiti-cli node search` |
-| `search_memory_facts` | `graphiti-cli edge search` |
-| `get_entity_edge` | `graphiti-cli edge show` |
+| `get_episode_entities` | `graphiti-cli node list --episode-uuid` / `edge list --episode-uuid` |
+| `search_nodes` | `graphiti-cli search --only-node` |
+| `search_memory_facts` | `graphiti-cli search --only-edge` |
+| `get_entity_edge` | `graphiti-cli edge get` |
 | `delete_entity_edge` | `graphiti-cli edge delete` |
 | `add_triplet` | `graphiti-cli triplet add` |
-| `<未提供>` | `node add` / `node show` / `node patch` / `node delete` / `edge add` / `edge patch` |
+| `<未提供>` | `node add` / `node get` / `node list` / `node patch` / `node delete` / `edge add` / `edge get` / `edge list` / `edge patch` / `edge delete` |
 
 `patch` 系列与 `node`/`edge` 的直写增删改是 CLI 扩展, 基于 graphiti-core 的模型
 `save()`/`delete()` 实现, 不经过 LLM 抽取.
@@ -56,31 +56,48 @@ uv run graphiti-cli config show
 uv run graphiti-cli episode add "会议纪要" --content "正文..." --source text
 echo "长正文..." | uv run graphiti-cli episode add "会议纪要" --content -
 
-# 列出 / 查看(可传多个 UUID)
-uv run graphiti-cli episode show
-uv run graphiti-cli episode show <EPISODE_UUID>...
+# 列出(可按分区过滤, --limit 控制单分区条数)
+uv run graphiti-cli episode list
+uv run graphiti-cli episode list --group-id <GROUP_ID>
 
-# 删除(可传多个; 仅这些 episode 独有的实体与关系会被级联删除)
-uv run graphiti-cli episode delete <EPISODE_UUID>...
+# 查看单个 episode(按 UUID)
+uv run graphiti-cli episode get <EPISODE_UUID>
 
-# 清空分区下的全部 episodes(需显式 --all 确认, 不能与 UUID 同时使用)
-uv run graphiti-cli episode delete --all
-uv run graphiti-cli episode delete --all --group-id <GROUP_ID>
+# 删除(仅该 episode 独有的实体与关系会被级联删除)
+uv run graphiti-cli episode delete <EPISODE_UUID>
+```
 
-# 溯源: 查看 episode 产出的实体节点 / 关系边
-uv run graphiti-cli episode nodes <EPISODE_UUID>...
-uv run graphiti-cli episode edges <EPISODE_UUID>...
+### 混合检索(实体节点与事实)
+
+```bash
+# 同时返回实体节点与关系边(语义 + 关键词混合检索)
+uv run graphiti-cli search "查询文本" --limit 10
+
+# 只看节点或只看事实
+uv run graphiti-cli search "查询文本" --only-node
+uv run graphiti-cli search "查询文本" --only-edge
+
+# 按分区检索, 以某节点为中心重排序
+uv run graphiti-cli search "查询文本" --group-id <GROUP_ID> --center-node-uuid <NODE_UUID>
+
+# 按属性过滤(KEY=VALUE, VALUE 按 JSON 解析, 可传多个, 条件之间为 AND)
+uv run graphiti-cli search "查询文本" --attribute type=Organization
+
+# 按时间区间过滤事实(ISO8601)
+uv run graphiti-cli search "查询文本" --valid-at-after 2026-01-01
+
+# 切换检索配方(--config 可选 combined/edge/node/community 系列, 见 --help)
+uv run graphiti-cli search "查询文本" --config edge_mmr
 ```
 
 ### 实体节点
 
 ```bash
-# 混合检索(语义 + 关键词), 可按 label 过滤、围绕中心节点重排序
-uv run graphiti-cli node search "查询文本" --limit 10 --entity-type Organization
-
-# 直写增删改(不经过 LLM 抽取)
+# 直写增删改查(不经过 LLM 抽取)
 uv run graphiti-cli node add "节点名" --summary "摘要" --attribute KEY=VALUE
-uv run graphiti-cli node show <NODE_UUID>
+uv run graphiti-cli node get <NODE_UUID>
+uv run graphiti-cli node list
+uv run graphiti-cli node list --episode-uuid <EPISODE_UUID>   # 查看 episode 产出的节点
 uv run graphiti-cli node patch <NODE_UUID> --summary "新摘要"   # 改名会自动重建名称向量
 uv run graphiti-cli node delete <NODE_UUID>
 ```
@@ -88,13 +105,12 @@ uv run graphiti-cli node delete <NODE_UUID>
 ### 关系边(事实)
 
 ```bash
-# 事实检索, 支持关系类型与生效/失效时间区间过滤
-uv run graphiti-cli edge search "查询文本" --valid-at-after 2026-01-01
-
 # 在两个已有节点间直写一条边(自动生成事实向量)
 uv run graphiti-cli edge add <SOURCE_UUID> <TARGET_UUID> --name "关系名" --fact "事实描述"
 
-uv run graphiti-cli edge show <EDGE_UUID>
+uv run graphiti-cli edge get <EDGE_UUID>
+uv run graphiti-cli edge list
+uv run graphiti-cli edge list --episode-uuid <EPISODE_UUID>   # 查看 episode 产出的关系边
 uv run graphiti-cli edge patch <EDGE_UUID> --fact "新事实"      # 改 fact 会自动重建事实向量
 uv run graphiti-cli edge delete <EDGE_UUID>
 ```

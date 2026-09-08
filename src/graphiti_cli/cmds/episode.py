@@ -1,21 +1,20 @@
-"""CLI: ``graphiti-cli episode {add|show|delete|nodes|edges}``."""
+"""CLI: ``graphiti-cli episode {add|get|list|delete}``."""
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 import typer
-from graphiti_core.errors import NodeNotFoundError
-from graphiti_core.helpers import get_default_group_id
 from graphiti_core.nodes import EpisodeType, EpisodicNode
 from graphiti_core.utils.datetime_utils import utc_now
 
 from graphiti_cli.cmds.common import (
-    driver_for,
+    delete_model,
     dump_model,
     dump_models,
     echo_json,
+    get_model,
+    list_model,
     parse_datetime,
     read_stdin_or_value,
     run_async,
@@ -25,139 +24,17 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from graphiti_core import Graphiti
-    from graphiti_core.edges import EntityEdge
     from graphiti_core.graphiti import AddEpisodeResults
-    from graphiti_core.nodes import EntityNode
 
 __all__ = [
     "app",
 ]
 
 
-logger = logging.getLogger(__name__)
-
 app = typer.Typer(
     help="管理 episodes: 添加(触发实体/关系抽取)/查询/删除.",
     no_args_is_help=True,
 )
-
-
-# ======================================================================================
-# 内部工具
-# ======================================================================================
-def _warn_missing_uuid(
-    *,
-    uuid: str,
-) -> None:
-    """对批量操作中未找到的 UUID 输出警告, 不中断其余条目的处理."""
-    typer.secho(
-        f"警告: 未找到 episode: {uuid}",
-        fg=typer.colors.YELLOW,
-        err=True,
-    )
-
-
-def _effective_group_id(
-    *,
-    graphiti: Graphiti,
-    gid: str | None,
-) -> str:
-    """把默认图占位 None 解析为 provider 的默认 group_id.
-
-    FalkorDB 的默认 group_id 为 '_', 其他 provider 为空串.
-
-    Args:
-        graphiti: Graphiti 实例.
-        gid: 图分区 ID, None 表示默认分区.
-
-    Returns:
-        有效的 group_id 字符串.
-
-    """
-    return gid if gid is not None else get_default_group_id(graphiti.driver.provider)
-
-
-async def _select_episodes(
-    *,
-    graphiti: Graphiti,
-    group_ids: list[str | None],
-    uuids: list[str] | None,
-    limit: int | None = None,
-) -> list[EpisodicNode]:
-    """遍历图分区收集目标 episodes, 按来源分区去重并保持遍历顺序.
-
-    缺省(未传分区)时使用默认 group_id; 每个分区下按 UUID 逐一获取,
-    未传 UUID 时拉取分区内全部. FalkorDB 下不同分区可存在 uuid 相同
-    的节点, 去重需带上分区维度.
-
-    Args:
-        graphiti: Graphiti 实例.
-        group_ids: 图分区 ID 列表, None 表示默认分区.
-        uuids: 待获取的 episode UUID 列表, None 表示获取分区内全部.
-        limit: 整组拉取时单分区的最大条数, None 表示不限制.
-
-    Returns:
-        去重后的 episode 列表, 每个 episode 均携带其所属分区 group_id.
-
-    """
-    selected: list[EpisodicNode] = []
-    seen: set[tuple[str, str]] = set()
-    for gid in group_ids:
-        driver = driver_for(graphiti=graphiti, group_id=gid)
-        effective_gid = _effective_group_id(graphiti=graphiti, gid=gid)
-        if uuids is not None:
-            found: list[EpisodicNode] = []
-            for single_uuid in uuids:
-                try:
-                    found.append(await EpisodicNode.get_by_uuid(driver, single_uuid))
-                except NodeNotFoundError:
-                    continue
-        else:
-            found = await EpisodicNode.get_by_group_ids(
-                driver, [effective_gid], limit=limit
-            )
-        for episode in found:
-            key = (effective_gid, episode.uuid)
-            if key in seen:
-                continue
-            seen.add(key)
-            selected.append(episode)
-    return selected
-
-
-async def _collect_nodes_and_edges(
-    *,
-    graphiti: Graphiti,
-    group_ids: list[str | None],
-    uuids: list[str],
-) -> tuple[list[EntityNode], list[EntityEdge]]:
-    """遍历图分区汇总 episode 产出的实体节点与关系边, 按 UUID 去重.
-
-    Args:
-        graphiti: Graphiti 实例.
-        group_ids: 图分区 ID 列表, None 表示默认分区.
-        uuids: episode UUID 列表.
-
-    Returns:
-        (实体节点列表, 关系边列表) 元组.
-
-    """
-    nodes: list[EntityNode] = []
-    edges: list[EntityEdge] = []
-    seen_nodes: set[str] = set()
-    seen_edges: set[str] = set()
-    for gid in group_ids:
-        graphiti.driver = driver_for(graphiti=graphiti, group_id=gid)
-        result = await graphiti.get_nodes_and_edges_by_episode(uuids)
-        for node in result.nodes:
-            if node.uuid not in seen_nodes:
-                seen_nodes.add(node.uuid)
-                nodes.append(node)
-        for edge in result.edges:
-            if edge.uuid not in seen_edges:
-                seen_edges.add(edge.uuid)
-                edges.append(edge)
-    return nodes, edges
 
 
 # ======================================================================================
@@ -244,42 +121,65 @@ def add_episode(  # noqa: PLR0913
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli episode show``
+# CLI: ``graphiti-cli episode get``
 # ======================================================================================
-@app.command(name="show")
-def show_episodes(
+@app.command(name="get")
+def get_episode(
     *,
-    uuid: list[str] | None = typer.Argument(
-        None,
-        help="episode UUID, 可传多个; 省略时列出 episodes",
+    uuid: str = typer.Argument(
+        ...,
+        help="episode UUID",
     ),
-    group_id: list[str] | None = typer.Option(
+    group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 可传多个; 缺省为默认分区",
+        help="图分区 ID, 缺省为默认分区",
+    ),
+) -> None:
+    """按 UUID 查看单个 episode."""
+
+    async def _action(graphiti: Graphiti) -> EpisodicNode:
+        return await get_model(
+            graphiti=graphiti,
+            model_cls=EpisodicNode,
+            group_id=group_id,
+            uuid=uuid,
+            label="episode",
+        )
+
+    episode = run_async(action=_action)
+    echo_json(data=dump_model(model=episode))
+
+
+# ======================================================================================
+# CLI: ``graphiti-cli episode list``
+# ======================================================================================
+@app.command(name="list")
+def list_episodes(
+    *,
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="图分区 ID, 缺省为默认分区",
     ),
     limit: int = typer.Option(
         10,
         "--limit",
         min=1,
-        help="列出时单分区的最大条数",
+        help="单分区的最大条数",
     ),
 ) -> None:
-    """查看 episode(可传多个 UUID)或按分区列出 episodes(省略 UUID)."""
-    uuids: list[str] | None = uuid
-    group_ids: list[str | None] = list(group_id) if group_id else [None]
+    """按分区列出 episodes."""
 
     async def _action(graphiti: Graphiti) -> list[EpisodicNode]:
-        return await _select_episodes(
-            graphiti=graphiti, group_ids=group_ids, uuids=uuids, limit=limit
+        return await list_model(
+            graphiti=graphiti,
+            model_cls=EpisodicNode,
+            group_id=group_id,
+            limit=limit,
         )
 
     episodes = run_async(action=_action)
-    if uuids:
-        found = {episode.uuid for episode in episodes}
-        for single_uuid in uuids:
-            if single_uuid not in found:
-                _warn_missing_uuid(uuid=single_uuid)
     echo_json(data=dump_models(models=episodes))
 
 
@@ -287,113 +187,29 @@ def show_episodes(
 # CLI: ``graphiti-cli episode delete``
 # ======================================================================================
 @app.command(name="delete")
-def delete_episodes(
+def delete_episode(
     *,
-    uuid: list[str] | None = typer.Argument(
-        None,
-        help="episode UUID, 可传多个; 省略时改传 --all 以删除分区下的全部 episodes",
+    uuid: str = typer.Argument(
+        ...,
+        help="episode UUID",
     ),
-    group_id: list[str] | None = typer.Option(
+    group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 可传多个; 缺省为默认分区",
-    ),
-    all_episodes: bool = typer.Option(
-        False,  # noqa: FBT003
-        "--all",
-        help="删除分区下的全部 episodes, 不能与 --uuid 同时使用",
+        help="图分区 ID, 缺省为默认分区",
     ),
 ) -> None:
-    """删除 episode, 仅其独有的实体与关系会被级联删除."""
-    if all_episodes and uuid:
-        msg = "--all 不能与 --uuid 同时使用"
-        raise typer.BadParameter(msg)
-    if not all_episodes and not uuid:
-        msg = "批量删除分区下全部 episodes 需显式传入 --all 确认"
-        raise typer.BadParameter(msg)
+    """按 UUID 删除 episode, 仅其独有的实体与关系会被级联删除."""
 
-    uuids: list[str] | None = uuid
-    group_ids: list[str | None] = list(group_id) if group_id else [None]
-
-    async def _action(graphiti: Graphiti) -> list[str]:
-        episodes = await _select_episodes(
-            graphiti=graphiti, group_ids=group_ids, uuids=uuids
+    async def _action(graphiti: Graphiti) -> str:
+        return await delete_model(
+            graphiti=graphiti,
+            model_cls=EpisodicNode,
+            group_id=group_id,
+            uuid=uuid,
+            label="episode",
+            delete=lambda graphiti, episode: graphiti.remove_episode(episode.uuid),
         )
-        deleted: list[str] = []
-        for episode in episodes:
-            # episode 自带所属分区, 在其来源图上执行级联删除
-            graphiti.driver = driver_for(graphiti=graphiti, group_id=episode.group_id)
-            await graphiti.remove_episode(episode.uuid)
-            deleted.append(episode.uuid)
-        return deleted
 
     deleted = run_async(action=_action)
-    if uuids:
-        found = set(deleted)
-        for single_uuid in uuids:
-            if single_uuid not in found:
-                _warn_missing_uuid(uuid=single_uuid)
-    if not deleted:
-        typer.echo("没有可删除的 episode")
-    elif all_episodes:
-        typer.echo(f"已删除分区下的全部 episodes, 共 {len(deleted)} 个")
-    else:
-        typer.echo(f"已删除 episode: {', '.join(deleted)}")
-
-
-# ======================================================================================
-# CLI: ``graphiti-cli episode nodes``
-# ======================================================================================
-@app.command(name="nodes")
-def show_episode_nodes(
-    *,
-    uuid: list[str] = typer.Argument(
-        ...,
-        help="episode UUID, 可传多个",
-    ),
-    group_id: list[str] | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 可传多个; 缺省为默认分区",
-    ),
-) -> None:
-    """查看 episode 产出的实体节点."""
-    group_ids: list[str | None] = list(group_id) if group_id else [None]
-
-    async def _action(graphiti: Graphiti) -> list[EntityNode]:
-        found_nodes, _ = await _collect_nodes_and_edges(
-            graphiti=graphiti, group_ids=group_ids, uuids=list(uuid)
-        )
-        return found_nodes
-
-    found_nodes = run_async(action=_action)
-    echo_json(data={"nodes": dump_models(models=found_nodes)})
-
-
-# ======================================================================================
-# CLI: ``graphiti-cli episode edges``
-# ======================================================================================
-@app.command(name="edges")
-def show_episode_edges(
-    *,
-    uuid: list[str] = typer.Argument(
-        ...,
-        help="episode UUID, 可传多个",
-    ),
-    group_id: list[str] | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 可传多个; 缺省为默认分区",
-    ),
-) -> None:
-    """查看 episode 产出的关系边."""
-    group_ids: list[str | None] = list(group_id) if group_id else [None]
-
-    async def _action(graphiti: Graphiti) -> list[EntityEdge]:
-        _, found_edges = await _collect_nodes_and_edges(
-            graphiti=graphiti, group_ids=group_ids, uuids=list(uuid)
-        )
-        return found_edges
-
-    found_edges = run_async(action=_action)
-    echo_json(data={"edges": dump_models(models=found_edges)})
+    typer.echo(f"已删除 episode: {deleted}")

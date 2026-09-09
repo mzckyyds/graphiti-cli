@@ -6,6 +6,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import typer
+from graphiti_core.helpers import get_default_group_id
 from graphiti_core.nodes import EpisodeType, EpisodicNode
 from graphiti_core.utils.datetime_utils import utc_now
 
@@ -122,7 +123,16 @@ def episode_add(  # noqa: PLR0913
             source=source,
             source_description=source_description,
             reference_time=reference_dt,
-            group_id=group_id,
+            # `add_episode` internally clones the driver whenever `group_id` differs
+            # from the configured database, and `FalkorDriver.clone('_')` hard-codes
+            # a fallback to `default_db`. Normalize the default partition to None so
+            # the configured database is always used; the episode still receives the
+            # default group id inside `add_episode`.
+            group_id=(
+                None
+                if group_id == get_default_group_id(graphiti.driver.provider)
+                else group_id
+            ),
             uuid=uuid,
             update_communities=update_communities,
             custom_extraction_instructions=instructions,

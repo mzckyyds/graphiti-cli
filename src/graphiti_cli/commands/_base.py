@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
     from graphiti_core import Graphiti
     from graphiti_core.driver.driver import GraphDriver
+    from graphiti_core.search.search_config import SearchResults
     from pydantic import BaseModel
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "dump_models",
     "echo_json",
     "effective_gid_for",
+    "get_episode_nodes_and_edges",
     "get_model",
     "list_model",
     "parse_attributes",
@@ -279,10 +281,14 @@ async def driver_for(
     In FalkorDB, each `group_id` corresponds to a graph with the same name.
     So direct writes and UUID-based reads must target the correct graph.
 
+    The default partition always maps to the configured database, even when it
+    is passed explicitly (e.g. `--group-id _` for FalkorDB): `FalkorDriver.clone('_')`
+    hard-codes a fallback to `default_db` and would silently bypass a user-configured
+    custom database, so the original driver is returned instead.
+
     A non-default partition must already exist as a graph (i.e. data has been
     written into it via `episode add --group-id`); `clone()` would otherwise
-    silently create an empty graph with indexes on first query. The default
-    partition always exists because it maps to the configured database.
+    silently create an empty graph with indexes on first query.
 
     Args:
         graphiti: `Graphiti` instance.
@@ -295,12 +301,10 @@ async def driver_for(
         typer.BadParameter: If the target graph does not exist on FalkorDB.
 
     """
-    if not group_id:
-        return graphiti.driver
     driver = graphiti.driver
-    if group_id != get_default_group_id(driver.provider) and isinstance(
-        driver, FalkorDriver
-    ):
+    if not group_id or group_id == get_default_group_id(driver.provider):
+        return driver
+    if isinstance(driver, FalkorDriver):
         # NOTE: falkordb's sync-looking `list_graphs()` wraps redis.asyncio
         # internally and returns a coroutine.
         graphs = await driver.client.list_graphs()
@@ -338,6 +342,48 @@ def effective_gid_for(
         if group_id is not None
         else get_default_group_id(graphiti.driver.provider)
     )
+
+
+# ======================================================================================
+# Episode Result
+# ======================================================================================
+async def get_episode_nodes_and_edges(
+    *,
+    graphiti: Graphiti,
+    group_id: str | None,
+    episode_uuid: str,
+) -> SearchResults:
+    """Return the nodes/edges produced by an episode within a single graph partition.
+
+    `Graphiti.get_nodes_and_edges_by_episode` silently returns an empty result
+    when the episode does not exist in the target partition, which is
+    indistinguishable from "the episode produced nothing". So the episode is
+    explicitly fetched first to report a clear error.
+
+    Args:
+        graphiti: `Graphiti` instance.
+        group_id: Graph partition ID, `None` means using the current default graph.
+        episode_uuid: The uuid of the `EpisodeNode`.
+
+    Returns:
+        The `SearchResults` containing the nodes and edges produced by the episode.
+
+    Raises:
+        typer.Exit: Exits(code=1) if the episode is not found in the partition.
+
+    """
+    graphiti.driver = await driver_for(graphiti=graphiti, group_id=group_id)
+    effective_gid = effective_gid_for(graphiti=graphiti, group_id=group_id)
+    try:
+        await EpisodicNode.get_by_uuid(graphiti.driver, episode_uuid)
+    except NodeNotFoundError as exc:
+        msg = (
+            f"EpisodeNode not found in partition {effective_gid!r}: {episode_uuid}, "
+            "please make sure --group-id matches the partition containing the episode"
+        )
+        typer.secho(f"Error: {msg}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+    return await graphiti.get_nodes_and_edges_by_episode([episode_uuid])
 
 
 # ======================================================================================

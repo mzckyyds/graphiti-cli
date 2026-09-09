@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -126,9 +128,20 @@ def save_settings(
         settings: The global configuration to be written.
 
     """
-    CLI_HOME.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp_path = SETTINGS_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(settings.model_dump_json(indent=2), encoding="utf-8")
-    tmp_path.chmod(0o600)
-    tmp_path.replace(SETTINGS_PATH)
+    CLI_HOME.mkdir(parents=True, exist_ok=True)
+    CLI_HOME.chmod(0o700)
+
+    # A unique staging file per write avoids concurrent `config set` runs
+    # clobbering each other; `mkstemp` also creates it with 0o600 directly.
+    fd, tmp_name = tempfile.mkstemp(
+        dir=CLI_HOME, prefix=f"{SETTINGS_PATH.name}.", suffix=".tmp"
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+            tmp_file.write(settings.model_dump_json(indent=2))
+        tmp_path.replace(SETTINGS_PATH)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
     logger.debug("Configuration saved: path=%r", str(SETTINGS_PATH))

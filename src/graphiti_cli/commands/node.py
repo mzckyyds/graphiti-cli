@@ -17,6 +17,7 @@ from ._base import (
     dump_models,
     echo_json,
     effective_gid_for,
+    get_episode_nodes_and_edges,
     get_model,
     list_model,
     parse_attributes,
@@ -157,8 +158,11 @@ def node_list(
 
     async def _action(graphiti: Graphiti) -> list[EntityNode]:
         if episode_uuid:
-            graphiti.driver = await driver_for(graphiti=graphiti, group_id=group_id)
-            result = await graphiti.get_nodes_and_edges_by_episode([episode_uuid])
+            result = await get_episode_nodes_and_edges(
+                graphiti=graphiti,
+                group_id=group_id,
+                episode_uuid=episode_uuid,
+            )
             return list(result.nodes)
         return await list_model(
             graphiti=graphiti,
@@ -197,7 +201,11 @@ def node_patch(
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
+        help=(
+            "Replace `EntityNode` attributes as a whole "
+            "(full overwrite: attribute keys not listed are removed); "
+            "KEY=VALUE format, VALUE is parsed as JSON."
+        ),
     ),
     group_id: str | None = typer.Option(
         None,
@@ -219,8 +227,8 @@ def node_patch(
                 await node.generate_name_embedding(graphiti.embedder)
             if summary is not None:
                 node.summary = summary
-            if attributes:
-                node.attributes.update(attributes)
+            if attribute is not None:
+                node.attributes = attributes
 
         return await patch_model(
             graphiti=graphiti,

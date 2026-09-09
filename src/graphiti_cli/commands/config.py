@@ -54,6 +54,8 @@ def _mask_secret(
 ) -> str:
     if not value:
         return ""
+    if len(value) <= 8:  # noqa: PLR2004
+        return "***"
     return f"{value[:4]}***"
 
 
@@ -137,7 +139,8 @@ def config_set_llm(
         "--extra-body",
         help=(
             "Extra request body fields (JSON object), "
-            "e.g., '{\"enable_thinking\": false}'"
+            "e.g., '{\"enable_thinking\": false}'; "
+            "displayed unmasked by `config show`, do not put secrets in it."
         ),
     ),
 ) -> None:
@@ -230,7 +233,8 @@ def config_set_reranker(
         "--extra-body",
         help=(
             "Extra request body fields (JSON object), "
-            "e.g., '{\"enable_thinking\": false}'"
+            "e.g., '{\"enable_thinking\": false}'; "
+            "displayed unmasked by `config show`, do not put secrets in it."
         ),
     ),
 ) -> None:
@@ -320,10 +324,14 @@ def config_show(
     reveal: bool = typer.Option(
         False,  # noqa: FBT003
         "--reveal",
-        help="Show full api_key/password.",
+        help="Show full secret values.",
     ),
 ) -> None:
-    """Show current configuration, masking api_key/password by default."""
+    """Show current configuration, masking secret values by default.
+
+    Note that `extra_body` is displayed as-is and never masked;
+    do not put secrets in it.
+    """
     settings = _load_settings_or_exit()
     data: dict[str, Any] = settings.model_dump()
     if not reveal:

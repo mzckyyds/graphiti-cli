@@ -94,10 +94,15 @@ def _filter_by_attributes(
 ) -> list[EntityNode | EntityEdge]:
     if not attributes:
         return list(models)
+    # NOTE: `KEY=null` parses to None; the membership check ensures records
+    # missing the key entirely are not matched as a false "null" value.
     return [
         model
         for model in models
-        if all(model.attributes.get(key) == value for key, value in attributes.items())
+        if all(
+            key in model.attributes and model.attributes[key] == value
+            for key, value in attributes.items()
+        )
     ]
 
 

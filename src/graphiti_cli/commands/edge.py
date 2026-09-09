@@ -18,6 +18,7 @@ from ._base import (
     dump_models,
     echo_json,
     effective_gid_for,
+    get_episode_nodes_and_edges,
     get_model,
     list_model,
     parse_attributes,
@@ -197,8 +198,11 @@ def edge_list(
 
     async def _action(graphiti: Graphiti) -> list[EntityEdge]:
         if episode_uuid:
-            graphiti.driver = await driver_for(graphiti=graphiti, group_id=group_id)
-            result = await graphiti.get_nodes_and_edges_by_episode([episode_uuid])
+            result = await get_episode_nodes_and_edges(
+                graphiti=graphiti,
+                group_id=group_id,
+                episode_uuid=episode_uuid,
+            )
             return list(result.edges)
         return await list_model(
             graphiti=graphiti,
@@ -252,7 +256,11 @@ def edge_patch(  # noqa: PLR0913
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
+        help=(
+            "Replace `EntityEdge` attributes as a whole "
+            "(full overwrite: attribute keys not listed are removed); "
+            "KEY=VALUE format, VALUE is parsed as JSON."
+        ),
     ),
     group_id: str | None = typer.Option(
         None,
@@ -280,8 +288,8 @@ def edge_patch(  # noqa: PLR0913
                 edge.invalid_at = parse_datetime(value=invalid_at, label="--invalid-at")
             if expired_at is not None:
                 edge.expired_at = parse_datetime(value=expired_at, label="--expired-at")
-            if attributes:
-                edge.attributes.update(attributes)
+            if attribute is not None:
+                edge.attributes = attributes
 
         return await patch_model(
             graphiti=graphiti,

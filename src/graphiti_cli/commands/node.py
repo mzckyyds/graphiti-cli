@@ -44,27 +44,27 @@ def node_add(
     uuid: str | None = typer.Option(
         None,
         "--uuid",
-        help="Custom `EntityNode` uuid",
+        help="Custom `EntityNode` uuid.",
     ),
     name: str = typer.Option(
         ...,
         "--name",
-        help="`EntityNode` name",
+        help="`EntityNode` name.",
     ),
     summary: str | None = typer.Option(
         None,
         "--summary",
-        help="`EntityNode` summary",
+        help="`EntityNode` summary.",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Add an `EntityNode`.
@@ -104,12 +104,12 @@ def node_get(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EntityNode` uuid",
+        help="`EntityNode` uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Get a single `EntityNode` by `--uuid`."""
@@ -136,7 +136,7 @@ def node_list(
         10,
         "--limit",
         min=1,
-        help="maximum number to list per partition",
+        help="Maximum number to list per partition.",
     ),
     episode_uuid: str | None = typer.Option(
         None,
@@ -150,7 +150,7 @@ def node_list(
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """List `EntityNode` by `--group-id` and optionally `--episode-uuid`."""
@@ -179,7 +179,7 @@ def node_patch(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EntityNode` uuid",
+        help="`EntityNode` uuid.",
     ),
     name: str | None = typer.Option(
         None,
@@ -192,17 +192,17 @@ def node_patch(
     summary: str | None = typer.Option(
         None,
         "--summary",
-        help="new `EntityNode` summary",
+        help="New `EntityNode` summary.",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Patch `EntityNode` by `--uuid`."""
@@ -243,12 +243,12 @@ def node_delete(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EntityNode` uuid",
+        help="`EntityNode` uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Delete `EntityNode` by `--uuid`.

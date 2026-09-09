@@ -60,48 +60,48 @@ def episode_add(  # noqa: PLR0913
     content: str = typer.Option(
         ...,
         "--content",
-        help="`EpisodeNode` episode body, pass '-' to read from stdin",
+        help="`EpisodeNode` episode body, pass '-' to read from stdin.",
     ),
     uuid: str | None = typer.Option(
         None,
         "--uuid",
-        help="custom `EpisodeNode` uuid",
+        help="Custom `EpisodeNode` uuid.",
     ),
     name: str = typer.Option(
         ...,
         "--name",
-        help="`EpisodeNode` name",
+        help="`EpisodeNode` name.",
     ),
     source: EpisodeType = typer.Option(
         EpisodeType.text,
         "--source",
         case_sensitive=False,
-        help="`EpisodeNode` source: text/json/message",
+        help="`EpisodeNode` source: text/json/message.",
     ),
     source_description: str = typer.Option(
         "",
         "--source-description",
-        help="`EpisodeNode` source description",
+        help="`EpisodeNode` source description.",
     ),
     reference_time: str | None = typer.Option(
         None,
         "--reference-time",
-        help="ISO8601, defaults to current UTC time",
+        help="ISO8601, defaults to current UTC time.",
     ),
     update_communities: bool = typer.Option(
         False,  # noqa: FBT003
         "--update-communities",
-        help="Should update community summaries after writing",
+        help="Should update community summaries after writing.",
     ),
     instructions: str | None = typer.Option(
         None,
         "--instructions",
-        help="Custom extraction instructions, guiding entity/relationship extraction",
+        help="Custom extraction instructions, guiding entity/relationship extraction.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Add an `EpisodeNode`.
@@ -146,12 +146,12 @@ def episode_get(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EpisodeNode` uuid",
+        help="`EpisodeNode` uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Get a single `EpisodeNode` by `--uuid`."""
@@ -178,12 +178,12 @@ def episode_list(
         10,
         "--limit",
         min=1,
-        help="maximum number to list per partition",
+        help="Maximum number to list per partition.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """List `EpisodeNode` by `--group-id`."""
@@ -208,12 +208,12 @@ def episode_delete(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EpisodeNode` uuid",
+        help="`EpisodeNode` uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Delete an `EpisodeNode` by `--uuid`.

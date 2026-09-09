@@ -46,52 +46,52 @@ def edge_add(  # noqa: PLR0913
     uuid: str | None = typer.Option(
         None,
         "--uuid",
-        help="Custom `EntityEdge` uuid",
+        help="Custom `EntityEdge` uuid.",
     ),
     name: str = typer.Option(
         ...,
         "--name",
-        help="`EntityEdge` name",
+        help="`EntityEdge` name.",
     ),
     fact: str = typer.Option(
         ...,
         "--fact",
-        help="`EntityEdge` fact",
+        help="`EntityEdge` fact.",
     ),
     valid_at: str | None = typer.Option(
         None,
         "--valid-at",
-        help="ISO8601, `EntityEdge` valid start time",
+        help="ISO8601, `EntityEdge` valid start time.",
     ),
     invalid_at: str | None = typer.Option(
         None,
         "--invalid-at",
-        help="ISO8601, `EntityEdge` valid end time",
+        help="ISO8601, `EntityEdge` valid end time.",
     ),
     expired_at: str | None = typer.Option(
         None,
         "--expired-at",
-        help="ISO8601, `EntityEdge` expiration time",
+        help="ISO8601, `EntityEdge` expiration time.",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
     ),
     source_uuid: str = typer.Option(
         ...,
         "--source-uuid",
-        help="`EntityEdge` source node uuid",
+        help="`EntityEdge` source node uuid.",
     ),
     target_uuid: str = typer.Option(
         ...,
         "--target-uuid",
-        help="`EntityEdge` target node uuid",
+        help="`EntityEdge` target node uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Add an `EntityEdge` between two existing nodes(`EntityNode`).
@@ -144,12 +144,12 @@ def edge_get(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EntityEdge` uuid",
+        help="`EntityEdge` uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Get a single `EntityEdge` by `--uuid`."""
@@ -176,7 +176,7 @@ def edge_list(
         10,
         "--limit",
         min=1,
-        help="maximum number to list per partition",
+        help="Maximum number to list per partition.",
     ),
     episode_uuid: str | None = typer.Option(
         None,
@@ -190,7 +190,7 @@ def edge_list(
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """List `EntityEdge` by `--group-id` and optionally `--episode-uuid`."""
@@ -219,12 +219,12 @@ def edge_patch(  # noqa: PLR0913
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EntityEdge` uuid",
+        help="`EntityEdge` uuid.",
     ),
     name: str | None = typer.Option(
         None,
         "--name",
-        help="new `EntityEdge` name",
+        help="New `EntityEdge` name.",
     ),
     fact: str | None = typer.Option(
         None,
@@ -237,27 +237,27 @@ def edge_patch(  # noqa: PLR0913
     valid_at: str | None = typer.Option(
         None,
         "--valid-at",
-        help="ISO8601, `EntityEdge` valid start time",
+        help="ISO8601, `EntityEdge` valid start time.",
     ),
     invalid_at: str | None = typer.Option(
         None,
         "--invalid-at",
-        help="ISO8601, `EntityEdge` valid end time",
+        help="ISO8601, `EntityEdge` valid end time.",
     ),
     expired_at: str | None = typer.Option(
         None,
         "--expired-at",
-        help="ISO8601, `EntityEdge` expiration time",
+        help="ISO8601, `EntityEdge` expiration time.",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Patch `EntityEdge` by `--uuid`."""
@@ -304,12 +304,12 @@ def edge_delete(
     uuid: str = typer.Option(
         ...,
         "--uuid",
-        help="`EntityEdge` uuid",
+        help="`EntityEdge` uuid.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Delete `EntityEdge` by `--uuid`."""

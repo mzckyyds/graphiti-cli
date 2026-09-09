@@ -36,17 +36,17 @@ def append_triplet(  # noqa: PLR0913
     source_uuid: str | None = typer.Option(
         None,
         "--source-uuid",
-        help="custom source `EntityNode` uuid.",
+        help="Custom source `EntityNode` uuid.",
     ),
     source_name: str = typer.Option(
         ...,
         "--source-name",
-        help="source `EntityNode` name.",
+        help="Source `EntityNode` name.",
     ),
     source_summary: str | None = typer.Option(
         None,
         "--source-summary",
-        help="source `EntityNode` summary.",
+        help="Source `EntityNode` summary.",
     ),
     source_attribute: list[str] | None = typer.Option(
         None,
@@ -58,17 +58,17 @@ def append_triplet(  # noqa: PLR0913
     target_uuid: str | None = typer.Option(
         None,
         "--target-uuid",
-        help="custom target `EntityNode` uuid.",
+        help="Custom target `EntityNode` uuid.",
     ),
     target_name: str = typer.Option(
         ...,
         "--target-name",
-        help="target `EntityNode` name.",
+        help="Target `EntityNode` name.",
     ),
     target_summary: str | None = typer.Option(
         None,
         "--target-summary",
-        help="target `EntityNode` summary.",
+        help="Target `EntityNode` summary.",
     ),
     target_attribute: list[str] | None = typer.Option(
         None,
@@ -80,7 +80,7 @@ def append_triplet(  # noqa: PLR0913
     edge_uuid: str | None = typer.Option(
         None,
         "--edge-uuid",
-        help="custom `EntityEdge` uuid.",
+        help="Custom `EntityEdge` uuid.",
     ),
     edge_name: str = typer.Option(
         ...,
@@ -95,27 +95,27 @@ def append_triplet(  # noqa: PLR0913
     edge_valid_at: str | None = typer.Option(
         None,
         "--edge-valid-at",
-        help="ISO8601, `EntityEdge` valid start time",
+        help="ISO8601, `EntityEdge` valid start time.",
     ),
     edge_invalid_at: str | None = typer.Option(
         None,
         "--edge-invalid-at",
-        help="ISO8601, `EntityEdge` valid end time",
+        help="ISO8601, `EntityEdge` valid end time.",
     ),
     edge_expired_at: str | None = typer.Option(
         None,
         "--edge-expired-at",
-        help="ISO8601, `EntityEdge` expiration time",
+        help="ISO8601, `EntityEdge` expiration time.",
     ),
     edge_attribute: list[str] | None = typer.Option(
         None,
         "--edge-attribute",
-        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Append triplets: (`EntityNode`, `EntityEdge`, `EntityNode`)."""

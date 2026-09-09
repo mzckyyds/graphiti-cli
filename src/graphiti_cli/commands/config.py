@@ -120,17 +120,17 @@ def config_set_llm(
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="OpenAI compatible endpoint URL",
+        help="OpenAI compatible endpoint URL.",
     ),
     model_name: str | None = typer.Option(
         None,
         "--model-name",
-        help="LLM model name",
+        help="LLM model name.",
     ),
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        help="API key",
+        help="API key.",
     ),
     extra_body: str | None = typer.Option(
         None,
@@ -170,22 +170,22 @@ def config_set_embedder(
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="OpenAI compatible endpoint URL",
+        help="OpenAI compatible endpoint URL.",
     ),
     model_name: str | None = typer.Option(
         None,
         "--model-name",
-        help="Embedder model name",
+        help="Embedder model name.",
     ),
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        help="API key",
+        help="API key.",
     ),
     dim: int | None = typer.Option(
         None,
         "--dim",
-        help="Dimensionality of the embedding vectors, default is 1024",
+        help="Dimensionality of the embedding vectors, default is 1024.",
     ),
 ) -> None:
     """Update Embedder service configuration.
@@ -213,17 +213,17 @@ def config_set_reranker(
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="OpenAI compatible endpoint URL",
+        help="OpenAI compatible endpoint URL.",
     ),
     model_name: str | None = typer.Option(
         None,
         "--model-name",
-        help="Reranker model name",
+        help="Reranker model name.",
     ),
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        help="API key",
+        help="API key.",
     ),
     extra_body: str | None = typer.Option(
         None,
@@ -263,22 +263,22 @@ def config_set_falkordb(
     host: str | None = typer.Option(
         None,
         "--host",
-        help="FalkorDB host",
+        help="FalkorDB host.",
     ),
     port: int | None = typer.Option(
         None,
         "--port",
-        help="FalkorDB port",
+        help="FalkorDB port.",
     ),
     username: str | None = typer.Option(
         None,
         "--username",
-        help="Username, pass an empty string if no authentication is required",
+        help="Username, pass an empty string if no authentication is required.",
     ),
     password: str | None = typer.Option(
         None,
         "--password",
-        help="Password, pass an empty string if no authentication is required",
+        help="Password, pass an empty string if no authentication is required.",
     ),
     database: str | None = typer.Option(
         None,
@@ -320,7 +320,7 @@ def config_show(
     reveal: bool = typer.Option(
         False,  # noqa: FBT003
         "--reveal",
-        help="Show full api_key/password",
+        help="Show full api_key/password.",
     ),
 ) -> None:
     """Show current configuration, masking api_key/password by default."""

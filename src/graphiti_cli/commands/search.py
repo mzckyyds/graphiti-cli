@@ -133,13 +133,13 @@ def hybrid_search(  # noqa: PLR0913
     content: str = typer.Option(
         ...,
         "--content",
-        help="search content",
+        help="Search content.",
     ),
     limit: int = typer.Option(
         10,
         "--limit",
         min=1,
-        help="maximum number of results to return",
+        help="Maximum number of results to return.",
     ),
     attribute: list[str] | None = typer.Option(
         None,
@@ -160,7 +160,7 @@ def hybrid_search(  # noqa: PLR0913
     center_node_uuid: str | None = typer.Option(
         None,
         "--center-node-uuid",
-        help="re-rank with this node as the center",
+        help="Re-rank with this node as the center.",
     ),
     bfs_origin_node_uuid: list[str] | None = typer.Option(
         None,
@@ -173,57 +173,57 @@ def hybrid_search(  # noqa: PLR0913
     valid_at_after: str | None = typer.Option(
         None,
         "--valid-at-after",
-        help="ISO8601, only search record that are valid after this time",
+        help="ISO8601, only search record that are valid after this time.",
     ),
     valid_at_before: str | None = typer.Option(
         None,
         "--valid-at-before",
-        help="ISO8601, only search record that are valid before this time",
+        help="ISO8601, only search record that are valid before this time.",
     ),
     invalid_at_after: str | None = typer.Option(
         None,
         "--invalid-at-after",
-        help="ISO8601, only search record that are invalid after this time",
+        help="ISO8601, only search record that are invalid after this time.",
     ),
     invalid_at_before: str | None = typer.Option(
         None,
         "--invalid-at-before",
-        help="ISO8601, only search record that are invalid before this time",
+        help="ISO8601, only search record that are invalid before this time.",
     ),
     created_at_after: str | None = typer.Option(
         None,
         "--created-at-after",
-        help="ISO8601, only search record that are created after this time",
+        help="ISO8601, only search record that are created after this time.",
     ),
     created_at_before: str | None = typer.Option(
         None,
         "--created-at-before",
-        help="ISO8601, only search record that are created before this time",
+        help="ISO8601, only search record that are created before this time.",
     ),
     expired_at_after: str | None = typer.Option(
         None,
         "--expired-at-after",
-        help="ISO8601, only search record that are expired after this time",
+        help="ISO8601, only search record that are expired after this time.",
     ),
     expired_at_before: str | None = typer.Option(
         None,
         "--expired-at-before",
-        help="ISO8601, only search record that are expired before this time",
+        help="ISO8601, only search record that are expired before this time.",
     ),
     only_node: bool = typer.Option(
         False,  # noqa: FBT003
         "--only-node",
-        help="only return nodes, ignore edges",
+        help="Only return nodes, ignore edges.",
     ),
     only_edge: bool = typer.Option(
         False,  # noqa: FBT003
         "--only-edge",
-        help="only return edges, ignore nodes",
+        help="Only return edges, ignore nodes.",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="graph partition ID, null for default partition",
+        help="Graph partition ID, null for default partition.",
     ),
 ) -> None:
     """Hybrid search with support for attribute and time range filters."""

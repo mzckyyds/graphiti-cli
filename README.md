@@ -77,3 +77,7 @@ $ uv run graphiti-cli search --content "Who is Zhang san"
 ```
 
 > Use `uv run graphiti-cli --help` to see more.
+
+## 📄 License
+
+Apache-2.0. See [LICENSE](LICENSE) for details.

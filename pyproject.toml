@@ -5,6 +5,7 @@ description = "CLI for Graphiti"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+authors = [{ name = "mzckyyds", email = "1024418791@qq.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "graphiti-core[falkordb]>=0.30.1",
@@ -14,6 +15,9 @@ dependencies = [
 
 [project.scripts]
 graphiti-cli = "graphiti_cli.__main__:app"
+
+[project.urls]
+Repository = "https://github.com/mzckyyds/graphiti-cli"
 
 [build-system]
 requires = ["hatchling"]

@@ -46,12 +46,13 @@ def node_add(
         "--uuid",
         help="Custom `EntityNode` uuid",
     ),
-    name: str = typer.Argument(
+    name: str = typer.Option(
         ...,
+        "--name",
         help="`EntityNode` name",
     ),
-    summary: str = typer.Option(
-        "",
+    summary: str | None = typer.Option(
+        None,
         "--summary",
         help="`EntityNode` summary",
     ),
@@ -82,7 +83,7 @@ def node_add(
         node = EntityNode(
             name=name,
             group_id=effective_gid,
-            summary=summary,
+            summary=summary or "",
             attributes=attributes,
             uuid=uuid or str(uuid4()),
             created_at=utc_now(),
@@ -100,8 +101,9 @@ def node_add(
 # ======================================================================================
 def node_get(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EntityNode` uuid",
     ),
     group_id: str | None = typer.Option(
@@ -174,8 +176,9 @@ def node_list(
 # ======================================================================================
 def node_patch(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EntityNode` uuid",
     ),
     name: str | None = typer.Option(
@@ -237,8 +240,9 @@ def node_patch(
 # ======================================================================================
 def node_delete(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EntityNode` uuid",
     ),
     group_id: str | None = typer.Option(

@@ -38,12 +38,13 @@ def append_triplet(  # noqa: PLR0913
         "--source-uuid",
         help="custom source `EntityNode` uuid.",
     ),
-    source_name: str = typer.Argument(
+    source_name: str = typer.Option(
         ...,
+        "--source-name",
         help="source `EntityNode` name.",
     ),
-    source_summary: str = typer.Option(
-        "",
+    source_summary: str | None = typer.Option(
+        None,
         "--source-summary",
         help="source `EntityNode` summary.",
     ),
@@ -59,12 +60,13 @@ def append_triplet(  # noqa: PLR0913
         "--target-uuid",
         help="custom target `EntityNode` uuid.",
     ),
-    target_name: str = typer.Argument(
+    target_name: str = typer.Option(
         ...,
+        "--target-name",
         help="target `EntityNode` name.",
     ),
-    target_summary: str = typer.Option(
-        "",
+    target_summary: str | None = typer.Option(
+        None,
         "--target-summary",
         help="target `EntityNode` summary.",
     ),
@@ -80,12 +82,14 @@ def append_triplet(  # noqa: PLR0913
         "--edge-uuid",
         help="custom `EntityEdge` uuid.",
     ),
-    edge_name: str = typer.Argument(
+    edge_name: str = typer.Option(
         ...,
+        "--edge-name",
         help="`EntityEdge` name.",
     ),
-    edge_fact: str = typer.Argument(
+    edge_fact: str = typer.Option(
         ...,
+        "--edge-fact",
         help="`EntityEdge` fact.",
     ),
     edge_valid_at: str | None = typer.Option(
@@ -138,7 +142,7 @@ def append_triplet(  # noqa: PLR0913
         source = EntityNode(
             name=source_name,
             group_id=effective_gid,
-            summary=source_summary,
+            summary=source_summary or "",
             attributes=source_attributes,
             uuid=source_uuid or str(uuid4()),
             created_at=utc_now(),
@@ -146,7 +150,7 @@ def append_triplet(  # noqa: PLR0913
         target = EntityNode(
             name=target_name,
             group_id=effective_gid,
-            summary=target_summary,
+            summary=target_summary or "",
             attributes=target_attributes,
             uuid=target_uuid or str(uuid4()),
             created_at=utc_now(),

@@ -1,164 +1,79 @@
-# graphiti-cli
+# Graphiti CLI
 
-[Graphiti](https://github.com/getzep/graphiti) 时序知识图谱的命令行工具: 配置 OpenAI 兼容模型服务与 FalkorDB, 通过命令管理 episodes / 实体节点 / 关系边 / 事实三元组.
+**CLI** for [Graphiti](https://github.com/getzep/graphiti) with **FalkorDB** persistence and **OpenAI-compatible** LLM, embedding, and reranking endpoints.
 
-命令分组与 [graphiti MCP Server](https://github.com/getzep/graphiti/blob/main/mcp_server/src/graphiti_mcp_server.py) 工具的对应关系:
+## 🚀 Quick Start
 
-| MCP 工具 | CLI 命令 |
-| --- | --- |
-| `add_memory` | `graphiti-cli episode add` |
-| `get_episodes` | `graphiti-cli episode get` / `episode list` |
-| `delete_episode` | `graphiti-cli episode delete` |
-| `get_episode_entities` | `graphiti-cli node list --episode-uuid` / `edge list --episode-uuid` |
-| `search_nodes` | `graphiti-cli search --only-node` |
-| `search_memory_facts` | `graphiti-cli search --only-edge` |
-| `get_entity_edge` | `graphiti-cli edge get` |
-| `delete_entity_edge` | `graphiti-cli edge delete` |
-| `add_triplet` | `graphiti-cli triplet` |
-| `<未提供>` | `node add` / `node get` / `node list` / `node patch` / `node delete` / `edge add` / `edge get` / `edge list` / `edge patch` / `edge delete` |
-
-`patch` 系列与 `node`/`edge` 的直写增删改是 CLI 扩展, 基于 graphiti-core 的模型
-`save()`/`delete()` 实现, 不经过 LLM 抽取.
-
-## 安装
+### Installation
 
 ```bash
 uv sync
 uv run graphiti-cli --help
 ```
 
-## 配置
+### Usage Examples
 
 ```bash
-# 模型服务(OpenAI 兼容端点)
-uv run graphiti-cli config set llm --base-url <URL> --model-name <NAME> --api-key <KEY>
-uv run graphiti-cli config set embedder --base-url <URL> --model-name <NAME> --api-key <KEY> --dim 1024
-uv run graphiti-cli config set reranker --base-url <URL> --model-name <NAME> --api-key <KEY>
+# Set LLM
+$ uv run graphiti-cli config set llm \
+--base-url <URL> \
+--model-name <NAME> \
+--api-key <KEY> \
+--extra-body '{"enable_thinking": false}'
 
-# LLM/Reranker 可注入额外请求体字段(如 qwen3 关闭深度思考)
-uv run graphiti-cli config set llm --extra-body '{"enable_thinking": false}'
-#
-# --extra-body 的注入机制: CLI 会包装 OpenAI 客户端的 chat.completions.create,
-# 将配置的 extra_body 合并进每次 LLM/Reranker 请求的 extra_body 参数
-# (用户传入的同名字段优先). 因此 extra_body 可以覆盖 graphiti-core 自身
-# 设置的请求字段(例如 response_format 的 json_schema 结构化输出), 用于
-# 兼容对结构化输出支持不佳的 OpenAI 兼容端点; 若无此类兼容需求,
-# 不建议设置该字段.
+# Set Reranker
+$ uv run graphiti-cli config set reranker \
+--base-url <URL> \
+--model-name <NAME> \
+--api-key <KEY>
 
-# FalkorDB(Redis 协议)
-uv run graphiti-cli config set falkordb --host localhost --port 6379 --database _
+# Set Embedder
+$ uv run graphiti-cli config set embedder \
+--base-url <URL> \
+--model-name <NAME> \
+--api-key <KEY>
 
-# 查看当前配置(api_key/password 默认掩码)
-uv run graphiti-cli config show
+# Set FalkorDB
+$ uv run graphiti-cli config set falkordb \
+--host localhost \
+--port 6379 \
+--database default_db
+
+# Show current configuration
+$ uv run graphiti-cli config show
+
+# Add an episode
+$ uv run graphiti-cli episode add \
+--name "story" \
+--content "Zhang san is Li si's husband ..." \
+--source text
+
+# Add a node
+$ uv run graphiti-cli node add \
+--name "Zhang san" \
+--summary "A man ..." \
+--attribute org=example
+$ uv run graphiti-cli node add \
+--name "Li si" \
+--summary "A woman ..." \
+--attribute org=example
+
+# Add an edge
+$ uv run graphiti-cli edge add \
+--name "husband" \
+--fact "Zhang san is Li si's husband ..." \
+--source-uuid <UUID> \
+--target-uuid <UUID>
+
+# Append a triplet
+$ uv run graphiti-cli triplet \
+--source-name "Zhang san" \
+--target-name "Li si" \
+--edge-name "husband" \
+--edge-fact "Zhang san is Li si's husband ..."
+
+# Hybrid search
+$ uv run graphiti-cli search --content "Who is Zhang san"
 ```
 
-配置持久化在 `~/.graphiti-cli/settings.json`.
-
-## 常用命令
-
-### Episodes(写入信息与溯源查询)
-
-```bash
-# 添加 episode 并触发实体/关系抽取(主要写入入口)
-uv run graphiti-cli episode add "会议纪要" --content "正文..." --source text
-echo "长正文..." | uv run graphiti-cli episode add "会议纪要" --content -
-
-# 列出(可按分区过滤, --limit 控制单分区条数)
-uv run graphiti-cli episode list
-uv run graphiti-cli episode list --group-id <GROUP_ID>
-
-# 查看单个 episode(按 UUID)
-uv run graphiti-cli episode get <EPISODE_UUID>
-
-# 删除(其产出的关系与仅被其提及的实体会被级联删除; 注意: 经 node add
-# 直写的实体若只被该 episode 提及过, 也会一并删除)
-uv run graphiti-cli episode delete <EPISODE_UUID>
-```
-
-### 混合检索(实体节点与事实)
-
-```bash
-# 同时返回实体节点与关系边(语义 + 关键词混合检索)
-uv run graphiti-cli search "查询文本" --limit 10
-
-# 只看节点或只看事实
-uv run graphiti-cli search "查询文本" --only-node
-uv run graphiti-cli search "查询文本" --only-edge
-
-# 按分区检索, 以某节点为中心重排序
-uv run graphiti-cli search "查询文本" --group-id <GROUP_ID> --center-node-uuid <NODE_UUID>
-
-# 按属性过滤(KEY=VALUE, VALUE 按 JSON 解析, 可传多个, 条件之间为 AND)
-uv run graphiti-cli search "查询文本" --attribute type=Organization
-
-# 按时间区间过滤事实(ISO8601)
-uv run graphiti-cli search "查询文本" --valid-at-after 2026-01-01
-
-# 切换检索配方(--config 可选 combined/edge/node/community 系列, 见 --help)
-uv run graphiti-cli search "查询文本" --config edge_mmr
-```
-
-### 实体节点
-
-```bash
-# 直写增删改查(不经过 LLM 抽取)
-# --attribute 的 KEY 不能与节点保留字段冲突
-# (uuid/name/name_embedding/group_id/summary/created_at/labels), 否则报错
-uv run graphiti-cli node add "节点名" --summary "摘要" --attribute KEY=VALUE
-uv run graphiti-cli node get <NODE_UUID>
-uv run graphiti-cli node list
-uv run graphiti-cli node list --episode-uuid <EPISODE_UUID>   # 查看 episode 产出的节点
-uv run graphiti-cli node patch <NODE_UUID> --summary "新摘要"   # 改名会自动重建名称向量
-uv run graphiti-cli node delete <NODE_UUID>
-```
-
-### 关系边(事实)
-
-```bash
-# 在两个已有节点间直写一条边(自动生成事实向量)
-# --attribute 的 KEY 不能与边保留字段冲突
-# (uuid/name/group_id/fact/fact_embedding/episodes/created_at/expired_at/
-#  valid_at/invalid_at/reference_time/source_uuid/target_uuid), 否则报错
-uv run graphiti-cli edge add <SOURCE_UUID> <TARGET_UUID> --name "关系名" --fact "事实描述"
-
-uv run graphiti-cli edge get <EDGE_UUID>
-uv run graphiti-cli edge list
-uv run graphiti-cli edge list --episode-uuid <EPISODE_UUID>   # 查看 episode 产出的关系边
-uv run graphiti-cli edge patch <EDGE_UUID> --fact "新事实"      # 改 fact 会自动重建事实向量
-uv run graphiti-cli edge delete <EDGE_UUID>
-```
-
-### 事实三元组(绕过抽取流程)
-
-```bash
-# 直写 source -> 关系 -> target, 节点不存在时经 LLM 解析合并;
-# 节点可带摘要/属性(--source-summary/--target-summary/--source-attribute/
-# --target-attribute), 边可带属性与时间(--edge-attribute/--edge-valid-at/
-# --edge-invalid-at/--edge-expired-at), 写入前自动生成对应向量
-uv run graphiti-cli triplet "源实体" "目标实体" "关系" "事实描述"
-```
-
-## 图分区(group\_id)
-
-`--group-id` 用于多租户/多场景隔离. **FalkorDB 下每个 group\_id 对应一张同名图**:
-
-* `episode add` 是唯一会创建新分区的路径: 写入时指定 `--group-id X` 后,
-  数据落在图 `X`;
-* 其余所有命令的 `--group-id X` 要求图 `X` 已存在, 不存在会直接报错
-  (避免拼错分区名时静默创建一张空图);
-* 不传 `--group-id` 时使用默认分区(group\_id 为 `_`, 即配置里的
-  `database`); `episode/node/edge` 的按 UUID 直读与改删、以及
-  `node/edge add`, 都需要 `--group-id` 与写入时一致, 否则会在默认
-  分区里找不到数据.
-
-所有结果以 JSON 输出, 便于管道处理(`jq` 等). `search` 的输出统一为
-JSON 对象: 默认为 `{"nodes": [...], "edges": [...]}`, `--only-node` 为
-`{"nodes": [...]}`, `--only-edge` 为 `{"edges": [...]}`.
-
-## 开发
-
-```bash
-uv run ruff format src/ && uv run ruff check src/   # lint
-uv run pyright src/                                 # 类型检查(strict)
-uv run pytest                                       # 测试
-```
+> Use `uv run graphiti-cli --help` to see more.

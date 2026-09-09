@@ -130,8 +130,9 @@ def _build_date_filters(
 # ======================================================================================
 def hybrid_search(  # noqa: PLR0913
     *,
-    content: str = typer.Argument(
+    content: str = typer.Option(
         ...,
+        "--content",
         help="search content",
     ),
     limit: int = typer.Option(

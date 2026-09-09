@@ -67,8 +67,9 @@ def episode_add(  # noqa: PLR0913
         "--uuid",
         help="custom `EpisodeNode` uuid",
     ),
-    name: str = typer.Argument(
+    name: str = typer.Option(
         ...,
+        "--name",
         help="`EpisodeNode` name",
     ),
     source: EpisodeType = typer.Option(
@@ -142,8 +143,9 @@ def episode_add(  # noqa: PLR0913
 # ======================================================================================
 def episode_get(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EpisodeNode` uuid",
     ),
     group_id: str | None = typer.Option(
@@ -203,8 +205,9 @@ def episode_list(
 # ======================================================================================
 def episode_delete(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EpisodeNode` uuid",
     ),
     group_id: str | None = typer.Option(

@@ -2,11 +2,15 @@
 
 ## 项目概览
 
-`graphiti-cli` — 一个面向 [Graphiti](https://github.com/getzep/graphiti)（时序知识图谱框架）的 CLI 工具，后端使用 FalkorDB（`graphiti-core[falkordb]`），模型走通用 OpenAI 兼容端点。
+`graphiti-cli` — 一个面向 [Graphiti](https://github.com/getzep/graphiti)（时序知识图谱框架）的 CLI 工具，用户侧用法与命令示例见 `README.md`。
 
 代码结构：src 布局（`src/graphiti_cli/`），入口为 `__main__.py`（`uv run python -m graphiti_cli`）与 `pyproject.toml` 中 `[project.scripts]` 注册的 `graphiti-cli` 命令（指向 `graphiti_cli.__main__:app`）；`cli.py`（根命令 `app`, 组装各子命令）、`commands/`（各类子命令函数统一存放, 每类一个模块, 如 `commands/config.py`, `commands/_base.py` 存放共用工具）、`client.py`（Graphiti 实例构建）、`settings.py`（配置读写, 含 `CLI_HOME` 等常量）。
 
-配置统一存放在 `~/.graphiti-cli/settings.json`（权限 600），所有命令从这里读取，不使用环境变量。
+配置统一存放在 `~/.graphiti-cli/settings.json`（目录 700, 文件 600），所有命令从这里读取，不使用环境变量。
+
+包/依赖管理基于 uv，以 `pyproject.toml` 为准。
+
+CI 暂未配置，随项目成长逐步补充。
 
 ## 常用命令
 
@@ -15,20 +19,45 @@
 * **添加依赖**：`uv add <package>`（切勿手动编辑 `uv.lock`）
 * **添加开发依赖**：`uv add --dev <package>`（pytest, pytest-asyncio, ruff, pyright 已配置）
 * **测试**：`uv run pytest`（异步测试由 pytest-asyncio 支持, `asyncio_mode = "auto"`）
-* **质量检查/格式化**：`uv run ruff check .` / `uv run ruff format .`
+* **质量检查/格式化**：`uv run ruff format src/ && uv run ruff check src/`
 * **类型检查**：`uv run pyright`
-* **配置**：
-  * `uv run graphiti-cli config set llm --base-url <URL> --model-name <NAME> --api-key <KEY> [--extra-body <JSON>]`
-  * `uv run graphiti-cli config set embedder --base-url <URL> --model-name <NAME> --api-key <KEY> --dim <N>`
-  * `uv run graphiti-cli config set reranker --base-url <URL> --model-name <NAME> --api-key <KEY> [--extra-body <JSON>]`
-  * `uv run graphiti-cli config set falkordb --host <HOST> --port <PORT> --username <U> --password <P> --database <DB>`
-  * `uv run graphiti-cli config show [--reveal]`（默认掩码 api\_key/password）
-* **Python 版本**：3.12（在 `.python-version` 中固定）
 
-## 约定
+## CLI 行为语义
 
-* 包/依赖管理基于 uv；以 `pyproject.toml` 为准。
-* CI 暂未配置——随项目成长逐步补充。
+### 图分区(group\_id)
+
+`--group-id` 用于多租户/多场景隔离. **FalkorDB 下每个 group\_id 对应一张同名图**:
+
+* `episode add` 是唯一会创建新分区的路径: 写入时指定 `--group-id X` 后,
+  数据落在图 `X`;
+* 其余所有命令的 `--group-id X` 要求图 `X` 已存在, 不存在会直接报错
+  (避免拼错分区名时静默创建一张空图, 见 `_base.driver_for`);
+* 不传 `--group-id` 时使用默认分区(group\_id 为 `_`, 即配置里的
+  `database`); `episode/node/edge` 的按 UUID 直读与改删、以及
+  `node/edge add`, 都需要 `--group-id` 与写入时一致, 否则会在默认
+  分区里找不到数据.
+
+### 属性保留键
+
+`--attribute` 的 KEY 不能与节点/边的内建字段冲突(保存时属性会被展平进
+记录属性, 冲突的 KEY 会被静默丢弃), 冲突时 `parse_attributes` 直接报错:
+
+* 节点(`EntityNode`): `uuid`/`name`/`name_embedding`/`group_id`/`summary`/`created_at`/`labels`
+* 边(`EntityEdge`): `uuid`/`name`/`group_id`/`fact`/`fact_embedding`/`episodes`/`created_at`/`expired_at`/`valid_at`/`invalid_at`/`reference_time`/`source_uuid`/`target_uuid`
+
+### --extra-body 注入机制
+
+CLI 会包装 OpenAI 客户端的 `chat.completions.create`, 将配置的 extra\_body
+合并进每次 LLM/Reranker 请求的 extra\_body 参数(用户传入的同名字段优先).
+因此 extra\_body 可以覆盖 graphiti-core 自身设置的请求字段(例如
+response\_format 的 json\_schema 结构化输出), 用于兼容对结构化输出支持
+不佳的 OpenAI 兼容端点; 若无此类兼容需求, 不建议设置该字段.
+
+### 输出格式
+
+所有结果以 JSON 输出, 便于管道处理(`jq` 等). `search` 的输出统一为
+JSON 对象: 默认为 `{"nodes": [...], "edges": [...]}`, `--only-node` 为
+`{"nodes": [...]}`, `--only-edge` 为 `{"edges": [...]}`.
 
 ## 代码规范
 
@@ -219,18 +248,6 @@ obj.convert(value="1", encoding="utf-8")
 ### 符号规范
 
 注释、文档字符串与用户可见字符串中统一使用**半角符号**，分隔符后跟**一个空格**；行尾与字符串收尾不留尾随空格：
-
-| 全角 | 半角写法 |
-| --- | --- |
-| `，` `、` | `, ` |
-| `；` | `; ` |
-| `：` | `: ` |
-| `！` | `! ` |
-| `？` | `? ` |
-| `。` | `.` |
-| `…` | `...` |
-| `（）` | `()` |
-| `「」` | `""` |
 
 ```python
 # Bad

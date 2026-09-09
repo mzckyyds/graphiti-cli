@@ -78,12 +78,14 @@ def edge_add(  # noqa: PLR0913
         "--attribute",
         help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON",
     ),
-    source_uuid: str = typer.Argument(
+    source_uuid: str = typer.Option(
         ...,
+        "--source-uuid",
         help="`EntityEdge` source node uuid",
     ),
-    target_uuid: str = typer.Argument(
+    target_uuid: str = typer.Option(
         ...,
+        "--target-uuid",
         help="`EntityEdge` target node uuid",
     ),
     group_id: str | None = typer.Option(
@@ -139,8 +141,9 @@ def edge_add(  # noqa: PLR0913
 # ======================================================================================
 def edge_get(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EntityEdge` uuid",
     ),
     group_id: str | None = typer.Option(
@@ -213,8 +216,9 @@ def edge_list(
 # ======================================================================================
 def edge_patch(  # noqa: PLR0913
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EntityEdge` uuid",
     ),
     name: str | None = typer.Option(
@@ -297,8 +301,9 @@ def edge_patch(  # noqa: PLR0913
 # ======================================================================================
 def edge_delete(
     *,
-    uuid: str = typer.Argument(
+    uuid: str = typer.Option(
         ...,
+        "--uuid",
         help="`EntityEdge` uuid",
     ),
     group_id: str | None = typer.Option(

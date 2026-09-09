@@ -1,4 +1,4 @@
-"""Append triplets: (`EntityNode`<->`EntityEdge`<->`EntityNode`)."""
+"""Append triplets: (`EntityNode`, `EntityEdge`, `EntityNode`)."""
 
 from __future__ import annotations
 
@@ -118,7 +118,7 @@ def append_triplet(  # noqa: PLR0913
         help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """Append triplets: (`EntityNode`<->`EntityEdge`<->`EntityNode`)."""
+    """Append triplets: (`EntityNode`, `EntityEdge`, `EntityNode`)."""
     source_attributes = parse_attributes(
         pairs=source_attribute or [],
         reserved=NODE_RESERVED_ATTRIBUTE_KEYS,

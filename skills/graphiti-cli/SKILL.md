@@ -21,18 +21,18 @@ graphiti-cli <command> <sub> --help   # inspect a concrete command's flags (e.g.
 
 | Command | Purpose |
 |---------|---------|
-| `config` | Read/write the config file (`~/.graphiti-cli/settings.json`): `show` to view, `set` to write items one by one (llm/embedder/reranker/database) |
+| `config` | Read/write the config file (`~/.graphiti-cli/settings.json`): `show` to view, `set` to write items one by one (llm/embedder/reranker/falkordb) |
 | `episode` | Manage `EpisodeNode`: add/get/list/delete |
 | `node` | Manage `EntityNode`: add/get/list/patch/delete |
 | `edge` | Manage `EntityEdge`: add/get/list/patch/delete |
-| `triplet` | Write a triplet (source node, edge, target node) in one shot, no LLM extraction; pass `--source-uuid`/`--target-uuid` to reference existing nodes, otherwise new nodes are created |
+| `triplet` | Write a triplet (source node, edge, target node) in one shot, bypassing entity/relationship extraction; note that it still makes LLM calls for edge dedup/validation, and if a `--source-uuid`/`--target-uuid` does not exist in the graph, the node is resolved by name via the LLM and the uuid may be replaced |
 | `search` | Hybrid search with attribute and time-range filters |
 
 ## Typical workflow
 
 1. **First use**: configure services via `config set llm/embedder/reranker/database` (OpenAI-compatible endpoints + FalkorDB), then verify with `config show`.
 2. **Ingest raw text**: `episode add` (supports `--content -` to read from stdin); entities and relations are extracted by the LLM automatically.
-3. **Write structured knowledge precisely**: `triplet` writes a triplet directly, bypassing LLM extraction.
+3. **Write structured knowledge precisely**: `triplet` writes a triplet directly, bypassing entity/relationship extraction (note: it still makes LLM calls for edge dedup/validation; see the command map above).
 4. **Query**: `search` for hybrid retrieval; or `node get`/`edge get` to read by UUID directly, `node list`/`edge list` to list per partition.
 
 ## Behavior semantics not visible in --help

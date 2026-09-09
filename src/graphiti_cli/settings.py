@@ -95,8 +95,8 @@ def load_settings() -> Settings:
         The parsed global configuration.
 
     Raises:
-        ValueError: Raised when the file content is not valid JSON
-                or field types do not match.
+        ValueError: Raised when the file content is not valid JSON,
+                field types do not match, or the file cannot be read.
 
     """
     if not SETTINGS_PATH.exists():
@@ -107,6 +107,12 @@ def load_settings() -> Settings:
         return Settings()
     try:
         data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    except OSError as exc:
+        msg = (
+            f"Configuration file cannot be read: {SETTINGS_PATH} ({exc}), "
+            "please check its permissions or delete it and rerun config set"
+        )
+        raise ValueError(msg) from exc
     except json.JSONDecodeError as exc:
         msg = (
             f"Configuration file is not valid JSON: {SETTINGS_PATH} ({exc}), "

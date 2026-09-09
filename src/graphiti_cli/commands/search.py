@@ -270,7 +270,7 @@ def hybrid_search(  # noqa: PLR0913
                 list(bfs_origin_node_uuid) if bfs_origin_node_uuid else None
             ),
             search_filter=filters,
-            driver=driver_for(graphiti=graphiti, group_id=group_id),
+            driver=await driver_for(graphiti=graphiti, group_id=group_id),
         )
 
     result = run_async(action=_action)
@@ -278,9 +278,9 @@ def hybrid_search(  # noqa: PLR0913
     edges = _filter_by_attributes(models=result.edges, attributes=attribute_pairs)
 
     if only_node:
-        echo_json(data=dump_models(models=nodes))
+        echo_json(data={"nodes": dump_models(models=nodes)})
     elif only_edge:
-        echo_json(data=dump_models(models=edges))
+        echo_json(data={"edges": dump_models(models=edges)})
     else:
         echo_json(
             data={

@@ -83,7 +83,7 @@ def build_graphiti(
     _validate_config(
         value=cfg.llm.model_name,
         label="llm.model",
-        hint="llm --model <NAME>",
+        hint="llm --model-name <MODEL_NAME>",
     )
     _validate_config(
         value=cfg.llm.api_key,
@@ -98,7 +98,7 @@ def build_graphiti(
     _validate_config(
         value=cfg.embedder.model_name,
         label="embedder.model",
-        hint="embedder --model <NAME>",
+        hint="embedder --model-name <MODEL_NAME>",
     )
     _validate_config(
         value=cfg.embedder.api_key,
@@ -113,7 +113,7 @@ def build_graphiti(
     _validate_config(
         value=cfg.reranker.model_name,
         label="reranker.model",
-        hint="reranker --model <NAME>",
+        hint="reranker --model-name <MODEL_NAME>",
     )
     _validate_config(
         value=cfg.reranker.api_key,

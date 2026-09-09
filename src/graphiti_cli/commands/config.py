@@ -217,7 +217,7 @@ def config_set_reranker(
     ),
     model_name: str | None = typer.Option(
         None,
-        "--model",
+        "--model-name",
         help="Reranker model name",
     ),
     api_key: str | None = typer.Option(

@@ -4,7 +4,7 @@
 
 `graphiti-cli` — 一个面向 [Graphiti](https://github.com/getzep/graphiti)（时序知识图谱框架）的 CLI 工具，后端使用 FalkorDB（`graphiti-core[falkordb]`），模型走通用 OpenAI 兼容端点。
 
-代码结构：src 布局（`src/graphiti_cli/`），入口为 `__main__.py`（`uv run python -m graphiti_cli`）与 `pyproject.toml` 中 `[project.scripts]` 注册的 `graphiti-cli` 命令（指向 `graphiti_cli.__main__:app`）；`cli.py`（根命令 `app`, 组装各子命令）、`commands/`（各类子命令函数统一存放, 每类一个模块, 如 `commands/config.py`, `commands/_base.py` 存放共用工具）、`client.py`（Graphiti 实例构建）、`settings.py`（配置读写, 含 `RUNS_DIR` 等常量）。
+代码结构：src 布局（`src/graphiti_cli/`），入口为 `__main__.py`（`uv run python -m graphiti_cli`）与 `pyproject.toml` 中 `[project.scripts]` 注册的 `graphiti-cli` 命令（指向 `graphiti_cli.__main__:app`）；`cli.py`（根命令 `app`, 组装各子命令）、`commands/`（各类子命令函数统一存放, 每类一个模块, 如 `commands/config.py`, `commands/_base.py` 存放共用工具）、`client.py`（Graphiti 实例构建）、`settings.py`（配置读写, 含 `CLI_HOME` 等常量）。
 
 配置统一存放在 `~/.graphiti-cli/settings.json`（权限 600），所有命令从这里读取，不使用环境变量。
 
@@ -18,9 +18,9 @@
 * **质量检查/格式化**：`uv run ruff check .` / `uv run ruff format .`
 * **类型检查**：`uv run pyright`
 * **配置**：
-  * `uv run graphiti-cli config set llm --base-url <URL> --model <NAME> --api-key <KEY> [--extra-body <JSON>]`
-  * `uv run graphiti-cli config set embedder --base-url <URL> --model <NAME> --api-key <KEY> --dim <N>`
-  * `uv run graphiti-cli config set reranker --base-url <URL> --model <NAME> --api-key <KEY> [--extra-body <JSON>]`
+  * `uv run graphiti-cli config set llm --base-url <URL> --model-name <NAME> --api-key <KEY> [--extra-body <JSON>]`
+  * `uv run graphiti-cli config set embedder --base-url <URL> --model-name <NAME> --api-key <KEY> --dim <N>`
+  * `uv run graphiti-cli config set reranker --base-url <URL> --model-name <NAME> --api-key <KEY> [--extra-body <JSON>]`
   * `uv run graphiti-cli config set falkordb --host <HOST> --port <PORT> --username <U> --password <P> --database <DB>`
   * `uv run graphiti-cli config show [--reveal]`（默认掩码 api\_key/password）
 * **Python 版本**：3.12（在 `.python-version` 中固定）

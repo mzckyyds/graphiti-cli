@@ -31,12 +31,19 @@ uv run graphiti-cli --help
 
 ```bash
 # 模型服务(OpenAI 兼容端点)
-uv run graphiti-cli config set llm --base-url <URL> --model <NAME> --api-key <KEY>
-uv run graphiti-cli config set embedder --base-url <URL> --model <NAME> --api-key <KEY> --dim 1024
-uv run graphiti-cli config set reranker --base-url <URL> --model <NAME> --api-key <KEY>
+uv run graphiti-cli config set llm --base-url <URL> --model-name <NAME> --api-key <KEY>
+uv run graphiti-cli config set embedder --base-url <URL> --model-name <NAME> --api-key <KEY> --dim 1024
+uv run graphiti-cli config set reranker --base-url <URL> --model-name <NAME> --api-key <KEY>
 
 # LLM/Reranker 可注入额外请求体字段(如 qwen3 关闭深度思考)
 uv run graphiti-cli config set llm --extra-body '{"enable_thinking": false}'
+#
+# --extra-body 的注入机制: CLI 会包装 OpenAI 客户端的 chat.completions.create,
+# 将配置的 extra_body 合并进每次 LLM/Reranker 请求的 extra_body 参数
+# (用户传入的同名字段优先). 因此 extra_body 可以覆盖 graphiti-core 自身
+# 设置的请求字段(例如 response_format 的 json_schema 结构化输出), 用于
+# 兼容对结构化输出支持不佳的 OpenAI 兼容端点; 若无此类兼容需求,
+# 不建议设置该字段.
 
 # FalkorDB(Redis 协议)
 uv run graphiti-cli config set falkordb --host localhost --port 6379 --database _
@@ -95,6 +102,8 @@ uv run graphiti-cli search "查询文本" --config edge_mmr
 
 ```bash
 # 直写增删改查(不经过 LLM 抽取)
+# --attribute 的 KEY 不能与节点保留字段冲突
+# (uuid/name/name_embedding/group_id/summary/created_at/labels), 否则报错
 uv run graphiti-cli node add "节点名" --summary "摘要" --attribute KEY=VALUE
 uv run graphiti-cli node get <NODE_UUID>
 uv run graphiti-cli node list
@@ -107,6 +116,9 @@ uv run graphiti-cli node delete <NODE_UUID>
 
 ```bash
 # 在两个已有节点间直写一条边(自动生成事实向量)
+# --attribute 的 KEY 不能与边保留字段冲突
+# (uuid/name/group_id/fact/fact_embedding/episodes/created_at/expired_at/
+#  valid_at/invalid_at/reference_time/source_uuid/target_uuid), 否则报错
 uv run graphiti-cli edge add <SOURCE_UUID> <TARGET_UUID> --name "关系名" --fact "事实描述"
 
 uv run graphiti-cli edge get <EDGE_UUID>
@@ -121,7 +133,8 @@ uv run graphiti-cli edge delete <EDGE_UUID>
 ```bash
 # 直写 source -> 关系 -> target, 节点不存在时经 LLM 解析合并;
 # 节点可带摘要/属性(--source-summary/--target-summary/--source-attribute/
-# --target-attribute), 边可带 --attribute, 写入前自动生成对应向量
+# --target-attribute), 边可带属性与时间(--edge-attribute/--edge-valid-at/
+# --edge-invalid-at/--edge-expired-at), 写入前自动生成对应向量
 uv run graphiti-cli triplet "源实体" "目标实体" "关系" "事实描述"
 ```
 
@@ -129,15 +142,18 @@ uv run graphiti-cli triplet "源实体" "目标实体" "关系" "事实描述"
 
 `--group-id` 用于多租户/多场景隔离. **FalkorDB 下每个 group\_id 对应一张同名图**:
 
-* `episode add` 写入时指定 `--group-id X` 后, 数据落在图 `X`;
-* 不传 `--group-id` 时使用默认分区(group_id 为 `_`, 即配置里的
+* `episode add` 是唯一会创建新分区的路径: 写入时指定 `--group-id X` 后,
+  数据落在图 `X`;
+* 其余所有命令的 `--group-id X` 要求图 `X` 已存在, 不存在会直接报错
+  (避免拼错分区名时静默创建一张空图);
+* 不传 `--group-id` 时使用默认分区(group\_id 为 `_`, 即配置里的
   `database`); `episode/node/edge` 的按 UUID 直读与改删、以及
   `node/edge add`, 都需要 `--group-id` 与写入时一致, 否则会在默认
-  分区里找不到数据;
-* 新分区首次使用前建议先建索引(可在 Python 中对克隆 driver 后调用
-  `graphiti.build_indices_and_constraints()`).
+  分区里找不到数据.
 
-所有结果以 JSON 输出, 便于管道处理(`jq` 等).
+所有结果以 JSON 输出, 便于管道处理(`jq` 等). `search` 的输出统一为
+JSON 对象: 默认为 `{"nodes": [...], "edges": [...]}`, `--only-node` 为
+`{"nodes": [...]}`, `--only-edge` 为 `{"edges": [...]}`.
 
 ## 开发
 

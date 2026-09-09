@@ -11,6 +11,7 @@ from graphiti_core.nodes import EntityNode
 from graphiti_core.utils.datetime_utils import utc_now
 
 from ._base import (
+    EDGE_RESERVED_ATTRIBUTE_KEYS,
     delete_model,
     driver_for,
     dump_model,
@@ -95,10 +96,14 @@ def edge_add(  # noqa: PLR0913
 
     Will generate embeddings for `--fact`.
     """
-    attributes = parse_attributes(pairs=attribute or [])
+    attributes = parse_attributes(
+        pairs=attribute or [],
+        reserved=EDGE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityEdge`",
+    )
 
     async def _action(graphiti: Graphiti) -> EntityEdge:
-        driver = driver_for(graphiti=graphiti, group_id=group_id)
+        driver = await driver_for(graphiti=graphiti, group_id=group_id)
         effective_gid = effective_gid_for(graphiti=graphiti, group_id=group_id)
         source = await EntityNode.get_by_uuid(driver, source_uuid)
         target = await EntityNode.get_by_uuid(driver, target_uuid)
@@ -189,7 +194,7 @@ def edge_list(
 
     async def _action(graphiti: Graphiti) -> list[EntityEdge]:
         if episode_uuid:
-            graphiti.driver = driver_for(graphiti=graphiti, group_id=group_id)
+            graphiti.driver = await driver_for(graphiti=graphiti, group_id=group_id)
             result = await graphiti.get_nodes_and_edges_by_episode([episode_uuid])
             return list(result.edges)
         return await list_model(
@@ -252,7 +257,11 @@ def edge_patch(  # noqa: PLR0913
     ),
 ) -> None:
     """Patch `EntityEdge` by `--uuid`."""
-    attributes = parse_attributes(pairs=attribute or [])
+    attributes = parse_attributes(
+        pairs=attribute or [],
+        reserved=EDGE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityEdge`",
+    )
 
     async def _action(graphiti: Graphiti) -> EntityEdge:
         async def _patch(edge: EntityEdge) -> None:

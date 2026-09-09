@@ -10,6 +10,7 @@ from graphiti_core.nodes import EntityNode
 from graphiti_core.utils.datetime_utils import utc_now
 
 from ._base import (
+    NODE_RESERVED_ATTRIBUTE_KEYS,
     delete_model,
     driver_for,
     dump_model,
@@ -69,10 +70,14 @@ def node_add(
 
     Will generate embeddings for `--name`.
     """
-    attributes = parse_attributes(pairs=attribute or [])
+    attributes = parse_attributes(
+        pairs=attribute or [],
+        reserved=NODE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityNode`",
+    )
 
     async def _action(graphiti: Graphiti) -> EntityNode:
-        driver = driver_for(graphiti=graphiti, group_id=group_id)
+        driver = await driver_for(graphiti=graphiti, group_id=group_id)
         effective_gid = effective_gid_for(graphiti=graphiti, group_id=group_id)
         node = EntityNode(
             name=name,
@@ -150,7 +155,7 @@ def node_list(
 
     async def _action(graphiti: Graphiti) -> list[EntityNode]:
         if episode_uuid:
-            graphiti.driver = driver_for(graphiti=graphiti, group_id=group_id)
+            graphiti.driver = await driver_for(graphiti=graphiti, group_id=group_id)
             result = await graphiti.get_nodes_and_edges_by_episode([episode_uuid])
             return list(result.nodes)
         return await list_model(
@@ -176,15 +181,15 @@ def node_patch(
     name: str | None = typer.Option(
         None,
         "--name",
-        help="new `EntityNode` name",
+        help=(
+            "new `EntityNode` name, "
+            "automatically rebuilds name vector after modification"
+        ),
     ),
     summary: str | None = typer.Option(
         None,
         "--summary",
-        help=(
-            "new `EntityNode` summary, "
-            "automatically rebuilds summary vector after modification"
-        ),
+        help="new `EntityNode` summary",
     ),
     attribute: list[str] | None = typer.Option(
         None,
@@ -198,7 +203,11 @@ def node_patch(
     ),
 ) -> None:
     """Patch `EntityNode` by `--uuid`."""
-    attributes = parse_attributes(pairs=attribute or [])
+    attributes = parse_attributes(
+        pairs=attribute or [],
+        reserved=NODE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityNode`",
+    )
 
     async def _action(graphiti: Graphiti) -> EntityNode:
         async def _patch(node: EntityNode) -> None:

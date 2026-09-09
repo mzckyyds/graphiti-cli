@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 __all__ = [
-    "RUNS_DIR",
+    "CLI_HOME",
     "SETTINGS_PATH",
     "EmbedderSettings",
     "FalkorDBSettings",
@@ -28,8 +28,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-RUNS_DIR = Path.home() / ".graphiti-cli"
-SETTINGS_PATH = RUNS_DIR / "settings.json"
+CLI_HOME = Path.home() / ".graphiti-cli"
+SETTINGS_PATH = CLI_HOME / "settings.json"
 
 
 # ======================================================================================
@@ -126,7 +126,7 @@ def save_settings(
         settings: The global configuration to be written.
 
     """
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    CLI_HOME.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp_path = SETTINGS_PATH.with_suffix(".json.tmp")
     tmp_path.write_text(settings.model_dump_json(indent=2), encoding="utf-8")
     tmp_path.chmod(0o600)

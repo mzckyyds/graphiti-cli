@@ -11,6 +11,8 @@ from graphiti_core.nodes import EntityNode
 from graphiti_core.utils.datetime_utils import utc_now
 
 from ._base import (
+    EDGE_RESERVED_ATTRIBUTE_KEYS,
+    NODE_RESERVED_ATTRIBUTE_KEYS,
     driver_for,
     dump_models,
     echo_json,
@@ -88,17 +90,17 @@ def append_triplet(  # noqa: PLR0913
     ),
     edge_valid_at: str | None = typer.Option(
         None,
-        "--valid-at",
+        "--edge-valid-at",
         help="ISO8601, `EntityEdge` valid start time",
     ),
     edge_invalid_at: str | None = typer.Option(
         None,
-        "--invalid-at",
+        "--edge-invalid-at",
         help="ISO8601, `EntityEdge` valid end time",
     ),
     edge_expired_at: str | None = typer.Option(
         None,
-        "--expired-at",
+        "--edge-expired-at",
         help="ISO8601, `EntityEdge` expiration time",
     ),
     edge_attribute: list[str] | None = typer.Option(
@@ -113,12 +115,24 @@ def append_triplet(  # noqa: PLR0913
     ),
 ) -> None:
     """Append triplets: (`EntityNode`<->`EntityEdge`<->`EntityNode`)."""
-    source_attributes = parse_attributes(pairs=source_attribute or [])
-    target_attributes = parse_attributes(pairs=target_attribute or [])
-    edge_attributes = parse_attributes(pairs=edge_attribute or [])
+    source_attributes = parse_attributes(
+        pairs=source_attribute or [],
+        reserved=NODE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityNode`",
+    )
+    target_attributes = parse_attributes(
+        pairs=target_attribute or [],
+        reserved=NODE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityNode`",
+    )
+    edge_attributes = parse_attributes(
+        pairs=edge_attribute or [],
+        reserved=EDGE_RESERVED_ATTRIBUTE_KEYS,
+        label="`EntityEdge`",
+    )
 
     async def _action(graphiti: Graphiti) -> AddTripletResults:
-        graphiti.driver = driver_for(graphiti=graphiti, group_id=group_id)
+        graphiti.driver = await driver_for(graphiti=graphiti, group_id=group_id)
         effective_gid = effective_gid_for(graphiti=graphiti, group_id=group_id)
         graphiti.clients.driver = graphiti.driver
         source = EntityNode(
@@ -146,13 +160,13 @@ def append_triplet(  # noqa: PLR0913
             group_id=effective_gid,
             uuid=edge_uuid or str(uuid4()),
             created_at=utc_now(),
-            valid_at=parse_datetime(value=edge_valid_at, label="--valid-at")
+            valid_at=parse_datetime(value=edge_valid_at, label="--edge-valid-at")
             if edge_valid_at is not None
             else None,
-            invalid_at=parse_datetime(value=edge_invalid_at, label="--invalid-at")
+            invalid_at=parse_datetime(value=edge_invalid_at, label="--edge-invalid-at")
             if edge_invalid_at is not None
             else None,
-            expired_at=parse_datetime(value=edge_expired_at, label="--expired-at")
+            expired_at=parse_datetime(value=edge_expired_at, label="--edge-expired-at")
             if edge_expired_at is not None
             else None,
         )

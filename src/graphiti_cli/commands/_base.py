@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import typer
+from graphiti_core.driver.falkordb_driver import FalkorDriver
 from graphiti_core.edges import EntityEdge
 from graphiti_core.errors import (
     EdgeNotFoundError,
@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 __all__ = [
+    "EDGE_RESERVED_ATTRIBUTE_KEYS",
+    "NODE_RESERVED_ATTRIBUTE_KEYS",
     "delete_model",
     "driver_for",
     "dump_model",
@@ -66,17 +68,29 @@ def run_async[T](
     """
 
     async def _reap_index_tasks() -> None:
+        """Await FalkorDB index-building tasks spawned by cloned drivers.
+
+        Every `FalkorDriver` (including each `clone()`) schedules
+        `build_indices_and_constraints` as a background task on creation.
+        Cloned drivers that end up unreferenced leave these tasks dangling,
+        and `Graphiti.close()` cancels - rather than awaits - the pending
+        init task of the driver it closes. So before closing, await any
+        task that is still building indices and log its failure.
+        """
         current = asyncio.current_task()
         strays = [
             task
             for task in asyncio.all_tasks()
             if task is not current
-            and task.get_coro() is not None
-            and "build_indices_and_constraints" in repr(task.get_coro())
+            and (coro := task.get_coro()) is not None
+            and getattr(coro, "__name__", "") == "build_indices_and_constraints"
         ]
-        for task in strays:
-            with contextlib.suppress(Exception):
-                await task
+        if not strays:
+            return
+        results = await asyncio.gather(*strays, return_exceptions=True)
+        for result in results:
+            if isinstance(result, Exception):
+                logger.debug("Index building task failed", exc_info=result)
 
     async def _run() -> T:
         graphiti = build_graphiti()
@@ -88,7 +102,9 @@ def run_async[T](
 
     try:
         return asyncio.run(_run())
-    except typer.Exit:
+    except (typer.Exit, typer.BadParameter):
+        # `typer.Exit` is the control flow of inner helpers; `typer.BadParameter`
+        # must bubble up so click renders it as a standard usage error (exit 2).
         raise
     except Exception as exc:
         logger.debug("Failed to execute action", exc_info=True)
@@ -145,8 +161,40 @@ def dump_models(
 
 
 # ======================================================================================
-# 参数解析
+# Parsing Utilities
 # ======================================================================================
+NODE_RESERVED_ATTRIBUTE_KEYS = frozenset(
+    {
+        "uuid",
+        "name",
+        "name_embedding",
+        "group_id",
+        "summary",
+        "created_at",
+        "labels",
+    }
+)
+EDGE_RESERVED_ATTRIBUTE_KEYS = frozenset(
+    {
+        "uuid",
+        "name",
+        "group_id",
+        "fact",
+        "fact_embedding",
+        "episodes",
+        "created_at",
+        "expired_at",
+        "valid_at",
+        "invalid_at",
+        "reference_time",
+        "source_uuid",
+        "source_node_uuid",
+        "target_uuid",
+        "target_node_uuid",
+    }
+)
+
+
 def parse_datetime(
     *,
     value: str,
@@ -177,6 +225,8 @@ def parse_datetime(
 def parse_attributes(
     *,
     pairs: Sequence[str],
+    reserved: frozenset[str] = frozenset(),
+    label: str | None = None,
 ) -> dict[str, Any]:
     """Parse string with KEY=VALUE format into an attribute dictionary.
 
@@ -184,12 +234,17 @@ def parse_attributes(
 
     Args:
         pairs: A list of KEY=VALUE strings.
+        reserved: Attribute keys reserved by the model persistence layer;
+            collisions are rejected because they would be silently dropped
+            (or corrupt the record) when the model is saved.
+        label: The model name, used for error reporting.
 
     Returns:
         A dictionary of parsed attributes.
 
     Raises:
-        typer.BadParameter: If any item does not contain '=' or if the KEY is empty.
+        typer.BadParameter: If any item does not contain '=', if the KEY is
+            empty, or if a KEY collides with a reserved key.
 
     """
     attributes: dict[str, Any] = {}
@@ -201,13 +256,20 @@ def parse_attributes(
             attributes[key] = json.loads(raw)
         except json.JSONDecodeError:
             attributes[key] = raw
+    conflicts = sorted(reserved & attributes.keys())
+    if conflicts:
+        keys = ", ".join(repr(key) for key in conflicts)
+        raise typer.BadParameter(
+            f"Reserved attribute key(s) {keys} conflict with built-in "
+            f"{label or 'model'} fields, please use different keys"
+        )
     return attributes
 
 
 # ======================================================================================
-# 查询辅助
+# Get Graph Driver/Effective Group ID
 # ======================================================================================
-def driver_for(
+async def driver_for(
     *,
     graphiti: Graphiti,
     group_id: str | None,
@@ -217,6 +279,11 @@ def driver_for(
     In FalkorDB, each `group_id` corresponds to a graph with the same name.
     So direct writes and UUID-based reads must target the correct graph.
 
+    A non-default partition must already exist as a graph (i.e. data has been
+    written into it via `episode add --group-id`); `clone()` would otherwise
+    silently create an empty graph with indexes on first query. The default
+    partition always exists because it maps to the configured database.
+
     Args:
         graphiti: `Graphiti` instance.
         group_id: Graph partition ID, `None` means using the current default graph.
@@ -224,10 +291,25 @@ def driver_for(
     Returns:
         The `GraphDriver` pointing to the target partition.
 
+    Raises:
+        typer.BadParameter: If the target graph does not exist on FalkorDB.
+
     """
     if not group_id:
         return graphiti.driver
-    return graphiti.driver.clone(database=group_id)
+    driver = graphiti.driver
+    if group_id != get_default_group_id(driver.provider) and isinstance(
+        driver, FalkorDriver
+    ):
+        # NOTE: falkordb's sync-looking `list_graphs()` wraps redis.asyncio
+        # internally and returns a coroutine.
+        graphs = await driver.client.list_graphs()
+        if group_id not in graphs:
+            raise typer.BadParameter(
+                f"Graph partition {group_id!r} does not exist on FalkorDB, "
+                "write data into it first via `graphiti-cli episode add --group-id`"
+            )
+    return driver.clone(database=group_id)
 
 
 def effective_gid_for(
@@ -259,7 +341,7 @@ def effective_gid_for(
 
 
 # ======================================================================================
-# 分区与选取
+# Model Get/List/Patch/Delete
 # ======================================================================================
 def _require_single[ModelT](
     *,
@@ -283,8 +365,12 @@ def _require_single[ModelT](
     """
     if len(models) == 1:
         return models[0]
-    msg = f"未找到 {label}: {uuid}" if not models else f"{label} {uuid} 命中了多条记录"
-    typer.secho(f"错误: {msg}", fg=typer.colors.RED, err=True)
+    msg = (
+        f"{label} not found: {uuid}"
+        if not models
+        else f"{label} {uuid} matched multiple records"
+    )
+    typer.secho(f"Error: {msg}", fg=typer.colors.RED, err=True)
     raise typer.Exit(code=1)
 
 
@@ -312,7 +398,7 @@ async def _select_models[ModelT: (EpisodicNode, EntityNode, EntityEdge)](
         A list of models that match the query (0 or 1 item if fetched by UUID).
 
     """
-    driver = driver_for(graphiti=graphiti, group_id=group_id)
+    driver = await driver_for(graphiti=graphiti, group_id=group_id)
     if uuid is not None:
         try:
             model = cast("ModelT", await model_cls.get_by_uuid(driver, uuid))
@@ -418,7 +504,7 @@ async def patch_model[ModelT: (EpisodicNode, EntityNode, EntityEdge)](  # noqa: 
     )
     model = _require_single(models=models, uuid=uuid, label=label)
     await patch(model)
-    await model.save(driver_for(graphiti=graphiti, group_id=model.group_id))
+    await model.save(await driver_for(graphiti=graphiti, group_id=model.group_id))
     return model
 
 
@@ -452,7 +538,7 @@ async def delete_model[ModelT: (EpisodicNode, EntityNode, EntityEdge)](  # noqa:
         graphiti=graphiti, model_cls=model_cls, group_id=group_id, uuid=uuid
     )
     model = _require_single(models=models, uuid=uuid, label=label)
-    graphiti.driver = driver_for(graphiti=graphiti, group_id=model.group_id)
+    graphiti.driver = await driver_for(graphiti=graphiti, group_id=model.group_id)
     if delete is None:
         await model.delete(graphiti.driver)
     else:

@@ -1,6 +1,6 @@
-"""支持 ``python -m graphiti_cli`` 方式运行."""
+"""graphiti-cli: CLI for Graphiti."""
 
-from graphiti_cli.cmds import app
+from graphiti_cli.cli import app
 
 if __name__ == "__main__":
     app()

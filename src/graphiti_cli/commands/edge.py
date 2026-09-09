@@ -1,4 +1,4 @@
-"""CLI: ``graphiti-cli edge {add|get|list|patch|delete}``."""
+"""About `EntityEdge`."""
 
 from __future__ import annotations
 
@@ -10,12 +10,13 @@ from graphiti_core.edges import EntityEdge
 from graphiti_core.nodes import EntityNode
 from graphiti_core.utils.datetime_utils import utc_now
 
-from graphiti_cli.cmds.common import (
+from ._base import (
     delete_model,
     driver_for,
     dump_model,
     dump_models,
     echo_json,
+    effective_gid_for,
     get_model,
     list_model,
     parse_attributes,
@@ -28,72 +29,97 @@ if TYPE_CHECKING:
     from graphiti_core import Graphiti
 
 __all__ = [
-    "app",
+    "edge_add",
+    "edge_delete",
+    "edge_get",
+    "edge_list",
+    "edge_patch",
 ]
 
 
-app = typer.Typer(
-    help="管理关系边(事实): 添加/查询/修改/删除.",
-    no_args_is_help=True,
-)
-
-
 # ======================================================================================
-# CLI: ``graphiti-cli edge add``
+# CLI: ``graphiti-cli edge add ...``
 # ======================================================================================
-@app.command(name="add")
-def add_edge(  # noqa: PLR0913
+def edge_add(  # noqa: PLR0913
     *,
-    source_node_uuid: str = typer.Argument(
-        ...,
-        help="源节点 UUID",
-    ),
-    target_node_uuid: str = typer.Argument(
-        ...,
-        help="目标节点 UUID",
+    uuid: str | None = typer.Option(
+        None,
+        "--uuid",
+        help="Custom `EntityEdge` uuid",
     ),
     name: str = typer.Option(
         ...,
         "--name",
-        help="关系名称",
+        help="`EntityEdge` name",
     ),
     fact: str = typer.Option(
         ...,
         "--fact",
-        help="事实描述",
+        help="`EntityEdge` fact",
     ),
-    group_id: str | None = typer.Option(
+    valid_at: str | None = typer.Option(
         None,
-        "--group-id",
-        help="图分区 ID, 缺省沿用源节点所在分区",
+        "--valid-at",
+        help="ISO8601, `EntityEdge` valid start time",
     ),
-    uuid: str | None = typer.Option(
+    invalid_at: str | None = typer.Option(
         None,
-        "--uuid",
-        help="自定义边 UUID",
+        "--invalid-at",
+        help="ISO8601, `EntityEdge` valid end time",
+    ),
+    expired_at: str | None = typer.Option(
+        None,
+        "--expired-at",
+        help="ISO8601, `EntityEdge` expiration time",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="附加属性 KEY=VALUE, VALUE 按 JSON 解析, 可传多个",
+        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+    ),
+    source_uuid: str = typer.Argument(
+        ...,
+        help="`EntityEdge` source node uuid",
+    ),
+    target_uuid: str = typer.Argument(
+        ...,
+        help="`EntityEdge` target node uuid",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """在两个已有节点间直写一条关系边, 自动生成事实向量, 不经过 LLM 抽取."""
+    """Add an `EntityEdge` between two existing nodes(`EntityNode`).
+
+    Will generate embeddings for `--fact`.
+    """
     attributes = parse_attributes(pairs=attribute or [])
 
     async def _action(graphiti: Graphiti) -> EntityEdge:
         driver = driver_for(graphiti=graphiti, group_id=group_id)
-        source = await EntityNode.get_by_uuid(driver, source_node_uuid)
-        target = await EntityNode.get_by_uuid(driver, target_node_uuid)
+        effective_gid = effective_gid_for(graphiti=graphiti, group_id=group_id)
+        source = await EntityNode.get_by_uuid(driver, source_uuid)
+        target = await EntityNode.get_by_uuid(driver, target_uuid)
         edge = EntityEdge(
             uuid=uuid or str(uuid4()),
-            group_id=group_id if group_id is not None else source.group_id,
+            group_id=effective_gid,
             source_node_uuid=source.uuid,
             target_node_uuid=target.uuid,
             name=name,
             fact=fact,
             attributes=attributes,
             created_at=utc_now(),
+            valid_at=parse_datetime(value=valid_at, label="--valid-at")
+            if valid_at is not None
+            else None,
+            invalid_at=parse_datetime(value=invalid_at, label="--invalid-at")
+            if invalid_at is not None
+            else None,
+            expired_at=parse_datetime(value=expired_at, label="--expired-at")
+            if expired_at is not None
+            else None,
         )
         await edge.generate_embedding(graphiti.embedder)
         await edge.save(driver)
@@ -104,22 +130,21 @@ def add_edge(  # noqa: PLR0913
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli edge get``
+# CLI: ``graphiti-cli edge get ...``
 # ======================================================================================
-@app.command(name="get")
-def get_edge(
+def edge_get(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="边 UUID",
+        help="`EntityEdge` uuid",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按 UUID 查看单条关系边."""
+    """Get a single `EntityEdge` by `--uuid`."""
 
     async def _action(graphiti: Graphiti) -> EntityEdge:
         return await get_model(
@@ -127,7 +152,7 @@ def get_edge(
             model_cls=EntityEdge,
             group_id=group_id,
             uuid=uuid,
-            label="关系边",
+            label="EntityEdge",
         )
 
     edge = run_async(action=_action)
@@ -135,29 +160,32 @@ def get_edge(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli edge list``
+# CLI: ``graphiti-cli edge list ...``
 # ======================================================================================
-@app.command(name="list")
-def list_edges(
+def edge_list(
     *,
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 缺省为默认分区",
-    ),
-    episode_uuid: str | None = typer.Option(
-        None,
-        "--episode-uuid",
-        help="episode UUID; 传入时只返回该 episode 产出的关系边",
-    ),
     limit: int = typer.Option(
         10,
         "--limit",
         min=1,
-        help="列出时单分区的最大条数",
+        help="maximum number to list per partition",
+    ),
+    episode_uuid: str | None = typer.Option(
+        None,
+        "--episode-uuid",
+        help=(
+            "`EpisodeNode` uuid; "
+            "if provided, only returns edges produced by it, "
+            "--limit is ignored"
+        ),
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按分区列出关系边, 可按 episode 过滤(替代原 ``episode edges``)."""
+    """List `EntityEdge` by `--group-id` and optionally `--episode-uuid`."""
 
     async def _action(graphiti: Graphiti) -> list[EntityEdge]:
         if episode_uuid:
@@ -176,52 +204,54 @@ def list_edges(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli edge patch``
+# CLI: ``graphiti-cli edge patch ...``
 # ======================================================================================
-@app.command(name="patch")
-def patch_edge(  # noqa: PLR0913
+def edge_patch(  # noqa: PLR0913
     *,
     uuid: str = typer.Argument(
         ...,
-        help="边 UUID",
-    ),
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 需与写入时一致",
+        help="`EntityEdge` uuid",
     ),
     name: str | None = typer.Option(
         None,
         "--name",
-        help="新关系名称",
+        help="new `EntityEdge` name",
     ),
     fact: str | None = typer.Option(
         None,
         "--fact",
-        help="新事实描述, 修改后自动重建事实向量",
+        help=(
+            "new `EntityEdge` fact, "
+            "automatically rebuilds fact vector after modification"
+        ),
     ),
     valid_at: str | None = typer.Option(
         None,
         "--valid-at",
-        help="ISO8601, 事实开始生效时间",
+        help="ISO8601, `EntityEdge` valid start time",
     ),
     invalid_at: str | None = typer.Option(
         None,
         "--invalid-at",
-        help="ISO8601, 事实停止生效时间",
+        help="ISO8601, `EntityEdge` valid end time",
     ),
     expired_at: str | None = typer.Option(
         None,
         "--expired-at",
-        help="ISO8601, 边失效(被新事实取代)时间",
+        help="ISO8601, `EntityEdge` expiration time",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="合并的附加属性 KEY=VALUE, 可传多个",
+        help="`EntityEdge` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """增量修改关系边的关系名, 事实描述与时间字段."""
+    """Patch `EntityEdge` by `--uuid`."""
     attributes = parse_attributes(pairs=attribute or [])
 
     async def _action(graphiti: Graphiti) -> EntityEdge:
@@ -245,7 +275,7 @@ def patch_edge(  # noqa: PLR0913
             model_cls=EntityEdge,
             group_id=group_id,
             uuid=uuid,
-            label="关系边",
+            label="EntityEdge",
             patch=_patch,
         )
 
@@ -254,22 +284,21 @@ def patch_edge(  # noqa: PLR0913
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli edge delete``
+# CLI: ``graphiti-cli edge delete ...``
 # ======================================================================================
-@app.command(name="delete")
-def delete_edge(
+def edge_delete(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="边 UUID",
+        help="`EntityEdge` uuid",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按 UUID 删除关系边."""
+    """Delete `EntityEdge` by `--uuid`."""
 
     async def _action(graphiti: Graphiti) -> str:
         return await delete_model(
@@ -277,8 +306,8 @@ def delete_edge(
             model_cls=EntityEdge,
             group_id=group_id,
             uuid=uuid,
-            label="关系边",
+            label="EntityEdge",
         )
 
     deleted = run_async(action=_action)
-    typer.echo(f"已删除关系边: {deleted}")
+    typer.echo(f"Deleted `EntityEdge`: {deleted}")

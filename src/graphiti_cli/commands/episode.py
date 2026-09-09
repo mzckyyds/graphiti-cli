@@ -1,14 +1,15 @@
-"""CLI: ``graphiti-cli episode {add|get|list|delete}``."""
+"""About `EpisodeNode`."""
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 import typer
 from graphiti_core.nodes import EpisodeType, EpisodicNode
 from graphiti_core.utils.datetime_utils import utc_now
 
-from graphiti_cli.cmds.common import (
+from ._base import (
     delete_model,
     dump_model,
     dump_models,
@@ -16,7 +17,6 @@ from graphiti_cli.cmds.common import (
     get_model,
     list_model,
     parse_datetime,
-    read_stdin_or_value,
     run_async,
 )
 
@@ -26,71 +26,88 @@ if TYPE_CHECKING:
     from graphiti_core import Graphiti
     from graphiti_core.graphiti import AddEpisodeResults
 
+
 __all__ = [
-    "app",
+    "episode_add",
+    "episode_delete",
+    "episode_get",
+    "episode_list",
 ]
 
 
-app = typer.Typer(
-    help="管理 episodes: 添加(触发实体/关系抽取)/查询/删除.",
-    no_args_is_help=True,
-)
-
-
 # ======================================================================================
-# CLI: ``graphiti-cli episode add``
+# Helper Functions
 # ======================================================================================
-@app.command(name="add")
-def add_episode(  # noqa: PLR0913
+def _read_stdin_or_value(
     *,
-    name: str = typer.Argument(
-        ...,
-        help="episode 名称",
-    ),
+    value: str,
+    label: str,
+) -> str:
+    if value != "-":
+        return value
+    content = sys.stdin.read()
+    if not content.strip():
+        msg = f"{label} read empty content from stdin"
+        raise typer.BadParameter(msg)
+    return content
+
+
+# ======================================================================================
+# CLI: ``graphiti-cli episode add ...``
+# ======================================================================================
+def episode_add(  # noqa: PLR0913
+    *,
     content: str = typer.Option(
         ...,
         "--content",
-        help="episode 正文, 传 '-' 时从 stdin 读取",
+        help="`EpisodeNode` episode body, pass '-' to read from stdin",
+    ),
+    uuid: str | None = typer.Option(
+        None,
+        "--uuid",
+        help="custom `EpisodeNode` uuid",
+    ),
+    name: str = typer.Argument(
+        ...,
+        help="`EpisodeNode` name",
     ),
     source: EpisodeType = typer.Option(
         EpisodeType.text,
         "--source",
         case_sensitive=False,
-        help="内容类型: text/json/message",
+        help="`EpisodeNode` source: text/json/message",
     ),
     source_description: str = typer.Option(
         "",
         "--source-description",
-        help="数据来源描述",
-    ),
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 缺省为默认图",
-    ),
-    uuid: str | None = typer.Option(
-        None,
-        "--uuid",
-        help="自定义 episode UUID",
+        help="`EpisodeNode` source description",
     ),
     reference_time: str | None = typer.Option(
         None,
         "--reference-time",
-        help="ISO8601 参考时间, 缺省为当前 UTC 时间",
+        help="ISO8601, defaults to current UTC time",
     ),
     update_communities: bool = typer.Option(
         False,  # noqa: FBT003
         "--update-communities",
-        help="写入后同步更新社区摘要",
+        help="Should update community summaries after writing",
     ),
     instructions: str | None = typer.Option(
         None,
         "--instructions",
-        help="自定义抽取指令, 引导实体/关系抽取",
+        help="Custom extraction instructions, guiding entity/relationship extraction",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """添加 episode 并触发实体/关系抽取, 是向图谱写入信息的主要入口."""
-    body = read_stdin_or_value(value=content, label="--content")
+    """Add an `EpisodeNode`.
+
+    Will trigger entity/relationship extraction for `--content`.
+    """
+    body = _read_stdin_or_value(value=content, label="--content")
     reference_dt: datetime = (
         parse_datetime(value=reference_time, label="--reference-time")
         if reference_time
@@ -121,22 +138,21 @@ def add_episode(  # noqa: PLR0913
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli episode get``
+# CLI: ``graphiti-cli episode get ...``
 # ======================================================================================
-@app.command(name="get")
-def get_episode(
+def episode_get(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="episode UUID",
+        help="`EpisodeNode` uuid",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按 UUID 查看单个 episode."""
+    """Get a single `EpisodeNode` by `--uuid`."""
 
     async def _action(graphiti: Graphiti) -> EpisodicNode:
         return await get_model(
@@ -144,7 +160,7 @@ def get_episode(
             model_cls=EpisodicNode,
             group_id=group_id,
             uuid=uuid,
-            label="episode",
+            label="EpisodeNode",
         )
 
     episode = run_async(action=_action)
@@ -152,24 +168,23 @@ def get_episode(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli episode list``
+# CLI: ``graphiti-cli episode list ...``
 # ======================================================================================
-@app.command(name="list")
-def list_episodes(
+def episode_list(
     *,
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 缺省为默认分区",
-    ),
     limit: int = typer.Option(
         10,
         "--limit",
         min=1,
-        help="单分区的最大条数",
+        help="maximum number to list per partition",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按分区列出 episodes."""
+    """List `EpisodeNode` by `--group-id`."""
 
     async def _action(graphiti: Graphiti) -> list[EpisodicNode]:
         return await list_model(
@@ -184,22 +199,24 @@ def list_episodes(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli episode delete``
+# CLI: ``graphiti-cli episode delete ...``
 # ======================================================================================
-@app.command(name="delete")
-def delete_episode(
+def episode_delete(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="episode UUID",
+        help="`EpisodeNode` uuid",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按 UUID 删除 episode, 仅其独有的实体与关系会被级联删除."""
+    """Delete an `EpisodeNode` by `--uuid`.
+
+    Will cascade delete its produced edges and entities only mentioned by it.
+    """
 
     async def _action(graphiti: Graphiti) -> str:
         return await delete_model(
@@ -207,9 +224,9 @@ def delete_episode(
             model_cls=EpisodicNode,
             group_id=group_id,
             uuid=uuid,
-            label="episode",
+            label="EpisodeNode",
             delete=lambda graphiti, episode: graphiti.remove_episode(episode.uuid),
         )
 
     deleted = run_async(action=_action)
-    typer.echo(f"已删除 episode: {deleted}")
+    typer.echo(f"Deleted `EpisodeNode`: {deleted}")

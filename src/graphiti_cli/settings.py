@@ -1,19 +1,20 @@
-"""graphiti-cli 配置读写.
+"""Configuration R/W for graphiti-cli.
 
-配置持久化在 ``~/.graphiti-cli/settings.json``, 由 ``config set`` 命令写入.
+Configuration is persisted in ``~/.graphiti-cli/settings.json``.
+Use `graphiti-cli config set` to modify it.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .constants import RUNS_DIR
-
 __all__ = [
+    "RUNS_DIR",
     "SETTINGS_PATH",
     "EmbedderSettings",
     "FalkorDBSettings",
@@ -27,6 +28,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+RUNS_DIR = Path.home() / ".graphiti-cli"
 SETTINGS_PATH = RUNS_DIR / "settings.json"
 
 
@@ -34,34 +36,34 @@ SETTINGS_PATH = RUNS_DIR / "settings.json"
 # 配置模型
 # ======================================================================================
 class LLMSettings(BaseModel):
-    """LLM 服务配置."""
+    """LLM service configuration."""
 
     base_url: str = ""
-    model: str = ""
+    model_name: str = ""
     api_key: str = ""
     extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
 class EmbedderSettings(BaseModel):
-    """Embedder 服务配置."""
+    """Embedder service configuration."""
 
     base_url: str = ""
-    model: str = ""
+    model_name: str = ""
     api_key: str = ""
     dim: int = 1024
 
 
 class RerankerSettings(BaseModel):
-    """Reranker 服务配置."""
+    """Reranker service configuration."""
 
     base_url: str = ""
-    model: str = ""
+    model_name: str = ""
     api_key: str = ""
     extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
 class FalkorDBSettings(BaseModel):
-    """FalkorDB 连接配置."""
+    """FalkorDB connection configuration."""
 
     host: str = "localhost"
     port: int = 6379
@@ -71,7 +73,7 @@ class FalkorDBSettings(BaseModel):
 
 
 class Settings(BaseModel):
-    """graphiti-cli 全局配置."""
+    """graphiti-cli global configuration."""
 
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedder: EmbedderSettings = Field(default_factory=EmbedderSettings)
@@ -83,18 +85,32 @@ class Settings(BaseModel):
 # 读写
 # ======================================================================================
 def load_settings() -> Settings:
-    """从 SETTINGS_PATH 读取配置.
+    """Load configuration from ~/.graphiti-cli/settings.json.
 
-    文件不存在或字段缺失时返回默认值, 由调用方在使用处校验完整性.
+    Returns default values if the file does not exist or fields are missing.
 
     Returns:
-        解析后的全局配置.
+        The parsed global configuration.
+
+    Raises:
+        ValueError: Raised when the file content is not valid JSON
+                or field types do not match.
 
     """
     if not SETTINGS_PATH.exists():
-        logger.debug("配置文件不存在, 使用默认配置: path=%r", str(SETTINGS_PATH))
+        logger.debug(
+            "Configuration file does not exist, using default settings: path=%r",
+            str(SETTINGS_PATH),
+        )
         return Settings()
-    data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        msg = (
+            f"Configuration file is not valid JSON: {SETTINGS_PATH} ({exc}), "
+            "please fix the file or delete it and rerun config set"
+        )
+        raise ValueError(msg) from exc
     return Settings.model_validate(data)
 
 
@@ -102,10 +118,12 @@ def save_settings(
     *,
     settings: Settings,
 ) -> None:
-    """原子写入配置文件, 并收紧文件权限(文件包含 api_key).
+    """Atomically write the configuration file.
+
+    Will tighten file permissions because the file contains API key.
 
     Args:
-        settings: 待写入的全局配置.
+        settings: The global configuration to be written.
 
     """
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
@@ -113,4 +131,4 @@ def save_settings(
     tmp_path.write_text(settings.model_dump_json(indent=2), encoding="utf-8")
     tmp_path.chmod(0o600)
     tmp_path.replace(SETTINGS_PATH)
-    logger.debug("配置已保存: path=%r", str(SETTINGS_PATH))
+    logger.debug("Configuration saved: path=%r", str(SETTINGS_PATH))

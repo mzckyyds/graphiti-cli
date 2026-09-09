@@ -1,4 +1,4 @@
-"""CLI: ``graphiti-cli node {add|get|list|patch|delete}``."""
+"""About `EntityNode`."""
 
 from __future__ import annotations
 
@@ -7,14 +7,15 @@ from uuid import uuid4
 
 import typer
 from graphiti_core.nodes import EntityNode
+from graphiti_core.utils.datetime_utils import utc_now
 
-from graphiti_cli.cmds.common import (
+from ._base import (
     delete_model,
     driver_for,
     dump_model,
     dump_models,
     echo_json,
-    effective_group_id,
+    effective_gid_for,
     get_model,
     list_model,
     parse_attributes,
@@ -26,59 +27,60 @@ if TYPE_CHECKING:
     from graphiti_core import Graphiti
 
 __all__ = [
-    "app",
+    "node_add",
+    "node_delete",
+    "node_get",
+    "node_list",
+    "node_patch",
 ]
 
 
-app = typer.Typer(
-    help="管理 EntityNode: 添加/查询/修改/删除.",
-    no_args_is_help=True,
-)
-
-
 # ======================================================================================
-# CLI: ``graphiti-cli node add``
+# CLI: ``graphiti-cli node add ...``
 # ======================================================================================
-@app.command(name="add")
-def add_node(
+def node_add(
     *,
+    uuid: str | None = typer.Option(
+        None,
+        "--uuid",
+        help="Custom `EntityNode` uuid",
+    ),
     name: str = typer.Argument(
         ...,
-        help="EntityNode 名称",
+        help="`EntityNode` name",
     ),
     summary: str = typer.Option(
         "",
         "--summary",
-        help="EntityNode 摘要",
-    ),
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 缺省为默认分区",
-    ),
-    uuid: str | None = typer.Option(
-        None,
-        "--uuid",
-        help="自定义 EntityNode UUID",
+        help="`EntityNode` summary",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="附加属性 KEY=VALUE, VALUE 按 JSON 解析, 可传多个",
+        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """添加 EntityNode 并生成名称向量(不经过 LLM 抽取)."""
+    """Add an `EntityNode`.
+
+    Will generate embeddings for `--name`.
+    """
     attributes = parse_attributes(pairs=attribute or [])
 
     async def _action(graphiti: Graphiti) -> EntityNode:
-        effective_gid = effective_group_id(graphiti=graphiti, gid=group_id)
         driver = driver_for(graphiti=graphiti, group_id=group_id)
+        effective_gid = effective_gid_for(graphiti=graphiti, group_id=group_id)
         node = EntityNode(
             name=name,
             group_id=effective_gid,
             summary=summary,
             attributes=attributes,
             uuid=uuid or str(uuid4()),
+            created_at=utc_now(),
         )
         await node.generate_name_embedding(graphiti.embedder)
         await node.save(driver)
@@ -89,22 +91,21 @@ def add_node(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli node get``
+# CLI: ``graphiti-cli node get ...``
 # ======================================================================================
-@app.command(name="get")
-def get_node(
+def node_get(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="EntityNode UUID",
+        help="`EntityNode` uuid",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按 UUID 查看单个 EntityNode."""
+    """Get a single `EntityNode` by `--uuid`."""
 
     async def _action(graphiti: Graphiti) -> EntityNode:
         return await get_model(
@@ -120,29 +121,32 @@ def get_node(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli node list``
+# CLI: ``graphiti-cli node list ...``
 # ======================================================================================
-@app.command(name="list")
-def list_nodes(
+def node_list(
     *,
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 缺省为默认分区",
-    ),
-    episode_uuid: str | None = typer.Option(
-        None,
-        "--episode-uuid",
-        help="episode UUID; 传入时只返回该 episode 产出的节点",
-    ),
     limit: int = typer.Option(
         10,
         "--limit",
         min=1,
-        help="列出时单分区的最大条数",
+        help="maximum number to list per partition",
+    ),
+    episode_uuid: str | None = typer.Option(
+        None,
+        "--episode-uuid",
+        help=(
+            "`EpisodeNode` uuid; "
+            "if provided, only returns nodes produced by it, "
+            "--limit is ignored"
+        ),
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按分区列出 EntityNode, 可按 episode 过滤(替代原 ``episode nodes``)."""
+    """List `EntityNode` by `--group-id` and optionally `--episode-uuid`."""
 
     async def _action(graphiti: Graphiti) -> list[EntityNode]:
         if episode_uuid:
@@ -161,37 +165,39 @@ def list_nodes(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli node patch``
+# CLI: ``graphiti-cli node patch ...``
 # ======================================================================================
-@app.command(name="patch")
-def patch_node(
+def node_patch(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="EntityNode UUID",
-    ),
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 需与写入时一致",
+        help="`EntityNode` uuid",
     ),
     name: str | None = typer.Option(
         None,
         "--name",
-        help="新名称, 修改后自动重建名称向量",
+        help="new `EntityNode` name",
     ),
     summary: str | None = typer.Option(
         None,
         "--summary",
-        help="新摘要",
+        help=(
+            "new `EntityNode` summary, "
+            "automatically rebuilds summary vector after modification"
+        ),
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
-        help="合并的附加属性 KEY=VALUE, 可传多个",
+        help="`EntityNode` attributes; KEY=VALUE format, VALUE is parsed as JSON",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """增量修改实体节点的名称(修改后自动重建名称向量), 摘要与属性."""
+    """Patch `EntityNode` by `--uuid`."""
     attributes = parse_attributes(pairs=attribute or [])
 
     async def _action(graphiti: Graphiti) -> EntityNode:
@@ -218,22 +224,24 @@ def patch_node(
 
 
 # ======================================================================================
-# CLI: ``graphiti-cli node delete``
+# CLI: ``graphiti-cli node delete ...``
 # ======================================================================================
-@app.command(name="delete")
-def delete_node(
+def node_delete(
     *,
     uuid: str = typer.Argument(
         ...,
-        help="EntityNode UUID",
+        help="`EntityNode` uuid",
     ),
     group_id: str | None = typer.Option(
         None,
         "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """按 UUID 删除实体节点(不级联删除关联的边)."""
+    """Delete `EntityNode` by `--uuid`.
+
+    Will also delete all edges connected to this node.
+    """
 
     async def _action(graphiti: Graphiti) -> str:
         return await delete_model(
@@ -245,4 +253,4 @@ def delete_node(
         )
 
     deleted = run_async(action=_action)
-    typer.echo(f"已删除节点: {deleted}")
+    typer.echo(f"Deleted `EntityNode`: {deleted}")

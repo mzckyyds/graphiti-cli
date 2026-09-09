@@ -1,4 +1,4 @@
-"""CLI: ``graphiti-cli search``."""
+"""Hybrid search."""
 
 from __future__ import annotations
 
@@ -23,13 +23,18 @@ from graphiti_core.search.search_config_recipes import (
     NODE_HYBRID_SEARCH_NODE_DISTANCE,
     NODE_HYBRID_SEARCH_RRF,
 )
-from graphiti_core.search.search_filters import SearchFilters
+from graphiti_core.search.search_filters import (
+    ComparisonOperator,
+    DateFilter,
+    SearchFilters,
+)
 
-from graphiti_cli.cmds.common import (
-    build_date_filters,
+from ._base import (
+    driver_for,
     dump_models,
     echo_json,
     parse_attributes,
+    parse_datetime,
     run_async,
 )
 
@@ -47,7 +52,7 @@ __all__ = [
 
 
 # ======================================================================================
-# 内部工具
+# Helper Functions
 # ======================================================================================
 _CONFIGS = {
     "combined_rrf": COMBINED_HYBRID_SEARCH_RRF,
@@ -77,9 +82,8 @@ def _load_config(
         return _CONFIGS[name.lower()]
     except KeyError as e:
         available = ", ".join(_CONFIGS.keys())
-        # BadParameter 让 typer 输出干净的 CLI 报错而非 traceback
         raise typer.BadParameter(
-            f"未找到检索配置 {name!r}, 可选配置: {available}"
+            f"Found no search config named {name!r}, available options: {available}."
         ) from e
 
 
@@ -88,16 +92,6 @@ def _filter_by_attributes(
     models: Sequence[EntityNode] | Sequence[EntityEdge],
     attributes: dict[str, Any],
 ) -> list[EntityNode | EntityEdge]:
-    """按属性键值对过滤节点/边, 条件之间为 AND.
-
-    Args:
-        models: 带 attributes 字典的节点或边.
-        attributes: 期望的属性键值对, 空表示不过滤.
-
-    Returns:
-        属性全部命中的模型列表.
-
-    """
     if not attributes:
         return list(models)
     return [
@@ -107,130 +101,158 @@ def _filter_by_attributes(
     ]
 
 
+def _build_date_filters(
+    *,
+    after: str | None,
+    before: str | None,
+    label_prefix: str,
+) -> list[list[DateFilter]]:
+    and_filters: list[DateFilter] = []
+    if after is not None:
+        and_filters.append(
+            DateFilter(
+                date=parse_datetime(value=after, label=f"--{label_prefix}-after"),
+                comparison_operator=ComparisonOperator.greater_than_equal,
+            )
+        )
+    if before is not None:
+        and_filters.append(
+            DateFilter(
+                date=parse_datetime(value=before, label=f"--{label_prefix}-before"),
+                comparison_operator=ComparisonOperator.less_than_equal,
+            )
+        )
+    return [and_filters] if and_filters else []
+
+
 # ======================================================================================
-# CLI: ``graphiti-cli search``
+# CLI: ``graphiti-cli search ...``
 # ======================================================================================
 def hybrid_search(  # noqa: PLR0913
     *,
     content: str = typer.Argument(
         ...,
-        help="检索内容",
-    ),
-    group_id: str | None = typer.Option(
-        None,
-        "--group-id",
-        help="图分区 ID, 缺省为默认分区",
+        help="search content",
     ),
     limit: int = typer.Option(
         10,
         "--limit",
         min=1,
-        help="最大返回条数",
+        help="maximum number of results to return",
     ),
     attribute: list[str] | None = typer.Option(
         None,
         "--attribute",
         help=(
-            "按属性过滤节点与边, 格式 KEY=VALUE, VALUE 按 JSON 解析, 可传多个, "
-            "条件之间为 AND; 在检索结果上后置过滤, --limit 先于本过滤生效"
+            "filter nodes and edges by attributes(KEY=VALUE format), "
+            "VALUE is parsed as JSON; "
+            "post-filter on search results, "
+            "--limit is applied before this filter"
         ),
     ),
     config_name: str = typer.Option(
         "combined_rrf",
         "--config",
         case_sensitive=False,
-        help=f"检索配置, 可选: {', '.join(_CONFIGS.keys())}",
+        help=f"search config, available options: {', '.join(_CONFIGS.keys())}",
     ),
     center_node_uuid: str | None = typer.Option(
         None,
         "--center-node-uuid",
-        help="以该节点为中心重排序",
+        help="re-rank with this node as the center",
     ),
     bfs_origin_node_uuid: list[str] | None = typer.Option(
         None,
         "--bfs-origin-node-uuid",
-        help="BFS 起点节点 UUID, 可传多个; 供 BFS 检索方法与 episode mentions 重排使用",
+        help=(
+            "BFS origin node UUID; "
+            "used for BFS search method and episode mentions re-ranking"
+        ),
     ),
     valid_at_after: str | None = typer.Option(
         None,
         "--valid-at-after",
-        help="ISO8601, 只返回该时间后生效的事实",
+        help="ISO8601, only search record that are valid after this time",
     ),
     valid_at_before: str | None = typer.Option(
         None,
         "--valid-at-before",
-        help="ISO8601, 只返回该时间前生效的事实",
+        help="ISO8601, only search record that are valid before this time",
     ),
     invalid_at_after: str | None = typer.Option(
         None,
         "--invalid-at-after",
-        help="ISO8601, 只返回该时间后失效的事实",
+        help="ISO8601, only search record that are invalid after this time",
     ),
     invalid_at_before: str | None = typer.Option(
         None,
         "--invalid-at-before",
-        help="ISO8601, 只返回该时间前失效的事实",
+        help="ISO8601, only search record that are invalid before this time",
     ),
     created_at_after: str | None = typer.Option(
         None,
         "--created-at-after",
-        help="ISO8601, 只返回该时间后写入的事实",
+        help="ISO8601, only search record that are created after this time",
     ),
     created_at_before: str | None = typer.Option(
         None,
         "--created-at-before",
-        help="ISO8601, 只返回该时间前写入的事实",
+        help="ISO8601, only search record that are created before this time",
     ),
     expired_at_after: str | None = typer.Option(
         None,
         "--expired-at-after",
-        help="ISO8601, 只返回该时间后被新事实取代的边",
+        help="ISO8601, only search record that are expired after this time",
     ),
     expired_at_before: str | None = typer.Option(
         None,
         "--expired-at-before",
-        help="ISO8601, 只返回该时间前被新事实取代的边",
+        help="ISO8601, only search record that are expired before this time",
     ),
     only_node: bool = typer.Option(
         False,  # noqa: FBT003
         "--only-node",
-        help="仅返回节点, 忽略关系边",
+        help="only return nodes, ignore edges",
     ),
     only_edge: bool = typer.Option(
         False,  # noqa: FBT003
         "--only-edge",
-        help="仅返回关系边, 忽略节点",
+        help="only return edges, ignore nodes",
+    ),
+    group_id: str | None = typer.Option(
+        None,
+        "--group-id",
+        help="graph partition ID, null for default partition",
     ),
 ) -> None:
-    """对实体节点与关系边(事实)做混合检索, 支持属性与时间区间过滤."""
+    """Hybrid search with support for attribute and time range filters."""
     if all((only_node, only_edge)):
         raise typer.BadParameter(
-            "只能选择仅返回节点或仅返回关系边中的一个, 不能同时选择."
+            "`--only-node` and `--only-edge` cannot be used together."
         )
 
-    # 复制 recipe 后再改 limit, 避免改写模块级共享的配置实例
     search_config = _load_config(name=config_name).model_copy(update={"limit": limit})
     attribute_pairs = parse_attributes(pairs=attribute or [])
     filters = SearchFilters(
-        valid_at=build_date_filters(
+        valid_at=_build_date_filters(
             after=valid_at_after,
             before=valid_at_before,
             label_prefix="valid-at",
         )
         or None,
-        invalid_at=build_date_filters(
+        invalid_at=_build_date_filters(
             after=invalid_at_after,
             before=invalid_at_before,
             label_prefix="invalid-at",
         )
         or None,
-        created_at=build_date_filters(
+        created_at=_build_date_filters(
             after=created_at_after,
             before=created_at_before,
             label_prefix="created-at",
         )
         or None,
-        expired_at=build_date_filters(
+        expired_at=_build_date_filters(
             after=expired_at_after,
             before=expired_at_before,
             label_prefix="expired-at",
@@ -248,6 +270,7 @@ def hybrid_search(  # noqa: PLR0913
                 list(bfs_origin_node_uuid) if bfs_origin_node_uuid else None
             ),
             search_filter=filters,
+            driver=driver_for(graphiti=graphiti, group_id=group_id),
         )
 
     result = run_async(action=_action)

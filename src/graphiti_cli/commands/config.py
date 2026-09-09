@@ -1,7 +1,4 @@
-"""CLI: ``graphiti-cli config set {llm|embedder|reranker|falkordb}``.
-
-只更新显式传入的选项, 其余字段保持不变.
-"""
+"""About Configuration."""
 
 from __future__ import annotations
 
@@ -10,9 +7,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 import typer
 
-from graphiti_cli.settings import load_settings, save_settings
-
-from ._base import mask_secret
+from graphiti_cli.settings import (
+    SETTINGS_PATH,
+    Settings,
+    load_settings,
+    save_settings,
+)
 
 if TYPE_CHECKING:
     from graphiti_cli.settings import (
@@ -22,43 +22,51 @@ if TYPE_CHECKING:
         RerankerSettings,
     )
 
-    # 三个模型服务配置段的公共字段类型, 即 base_url/model/api_key 三项
+    # The common field types for the three model service configuration sections:
+    # - base_url
+    # - model_name
+    # - api_key
     ProviderSettings = LLMSettings | EmbedderSettings | RerankerSettings
 
 __all__ = [
-    "set_embedder",
-    "set_falkordb",
-    "set_llm",
-    "set_reranker",
+    "config_set_embedder",
+    "config_set_falkordb",
+    "config_set_llm",
+    "config_set_reranker",
+    "config_show",
 ]
 
 
 # ======================================================================================
-# 内部工具
+# Helper Functions
 # ======================================================================================
+def _load_settings_or_exit() -> Settings:
+    try:
+        return load_settings()
+    except ValueError as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from None
+
+
+def _mask_secret(
+    *,
+    value: str,
+) -> str:
+    if not value:
+        return ""
+    return f"{value[:4]}***"
+
+
 def _parse_extra_body(
     *,
     raw: str,
 ) -> dict[str, Any]:
-    """解析 --extra-body 传入的 JSON 字符串.
-
-    Args:
-        raw: JSON 对象字符串, 如 ``'{"enable_thinking": false}'``.
-
-    Returns:
-        解析后的字典.
-
-    Raises:
-        BadParameter: 不是合法的 JSON 对象时.
-
-    """
     try:
         value = json.loads(raw)
     except json.JSONDecodeError as e:
-        raise typer.BadParameter(f"--extra-body 不是合法 JSON: {e}") from e
+        raise typer.BadParameter(f"--extra-body is not valid JSON: {e}") from e
     if not isinstance(value, dict):
-        raise typer.BadParameter("--extra-body 必须是 JSON 对象")
-    # NOTE: JSON 对象的 key 恒为字符串, json.loads 返回 Any 需显式收窄
+        raise typer.BadParameter("--extra-body must be a JSON object")
     return cast("dict[str, Any]", value)
 
 
@@ -66,22 +74,13 @@ def _update_model_provider(
     *,
     section: ProviderSettings,
     base_url: str | None,
-    model: str | None,
+    model_name: str | None,
     api_key: str | None,
 ) -> None:
-    """把命令行传入的选项增量更新到模型服务配置.
-
-    Args:
-        section: 目标配置段, 原地修改.
-        base_url: OpenAI 兼容端点, None 表示不更新.
-        model: 模型名, None 表示不更新.
-        api_key: API Key, None 表示不更新.
-
-    """
     if base_url is not None:
         section.base_url = base_url.rstrip("/")
-    if model is not None:
-        section.model = model
+    if model_name is not None:
+        section.model_name = model_name
     if api_key is not None:
         section.api_key = api_key
 
@@ -92,19 +91,11 @@ def _echo_provider(
     name: str,
     extra_body: dict[str, Any] | None = None,
 ) -> None:
-    """回显某个模型服务配置段的当前值(api_key 掩码).
-
-    Args:
-        section: 模型服务配置段.
-        name: 配置段名称.
-        extra_body: LLM/Reranker 特有的额外请求体字段, Embedder 不展示.
-
-    """
     suffix = "" if extra_body is None else f", extra_body={extra_body!r}"
     typer.echo(
         f"{name}: base_url={section.base_url!r}, "
-        f"model={section.model!r}, "
-        f"api_key={mask_secret(value=section.api_key)!r}"
+        f"model={section.model_name!r}, "
+        f"api_key={_mask_secret(value=section.api_key)!r}"
         f"{suffix}",
     )
 
@@ -113,16 +104,10 @@ def _echo_falkordb(
     *,
     section: FalkorDBSettings,
 ) -> None:
-    """回显 FalkorDB 配置段(password 掩码).
-
-    Args:
-        section: FalkorDB 配置段.
-
-    """
     typer.echo(
         f"falkordb: host={section.host!r}, port={section.port!r}, "
         f"username={section.username!r}, "
-        f"password={mask_secret(value=section.password)!r}, "
+        f"password={_mask_secret(value=section.password)!r}, "
         f"database={section.database!r}",
     )
 
@@ -130,35 +115,41 @@ def _echo_falkordb(
 # ======================================================================================
 # CLI: ``graphiti-cli config set llm``
 # ======================================================================================
-def set_llm(
+def config_set_llm(
     *,
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="OpenAI 兼容端点地址",
+        help="OpenAI compatible endpoint URL",
     ),
-    model: str | None = typer.Option(
+    model_name: str | None = typer.Option(
         None,
-        "--model",
-        help="LLM 模型名",
+        "--model-name",
+        help="LLM model name",
     ),
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        help="API Key",
+        help="API key",
     ),
     extra_body: str | None = typer.Option(
         None,
         "--extra-body",
-        help="额外请求体字段(JSON 对象), 如 '{\"enable_thinking\": false}'",
+        help=(
+            "Extra request body fields (JSON object), "
+            "e.g., '{\"enable_thinking\": false}'"
+        ),
     ),
 ) -> None:
-    """配置 LLM 服务, 未传入的选项保持不变."""
-    settings = load_settings()
+    """Update LLM service configuration.
+
+    Options not provided will remain unchanged.
+    """
+    settings = _load_settings_or_exit()
     _update_model_provider(
         section=settings.llm,
         base_url=base_url,
-        model=model,
+        model_name=model_name,
         api_key=api_key,
     )
     if extra_body is not None:
@@ -174,35 +165,38 @@ def set_llm(
 # ======================================================================================
 # CLI: ``graphiti-cli config set embedder``
 # ======================================================================================
-def set_embedder(
+def config_set_embedder(
     *,
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="OpenAI 兼容端点地址",
+        help="OpenAI compatible endpoint URL",
     ),
-    model: str | None = typer.Option(
+    model_name: str | None = typer.Option(
         None,
-        "--model",
-        help="Embedding 模型名",
+        "--model-name",
+        help="Embedder model name",
     ),
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        help="API Key",
+        help="API key",
     ),
     dim: int | None = typer.Option(
         None,
         "--dim",
-        help="向量维度, 默认 1024",
+        help="Dimensionality of the embedding vectors, default is 1024",
     ),
 ) -> None:
-    """配置 Embedder 服务, 未传入的选项保持不变."""
-    settings = load_settings()
+    """Update Embedder service configuration.
+
+    Options not provided will remain unchanged.
+    """
+    settings = _load_settings_or_exit()
     _update_model_provider(
         section=settings.embedder,
         base_url=base_url,
-        model=model,
+        model_name=model_name,
         api_key=api_key,
     )
     if dim is not None:
@@ -214,35 +208,41 @@ def set_embedder(
 # ======================================================================================
 # CLI: ``graphiti-cli config set reranker``
 # ======================================================================================
-def set_reranker(
+def config_set_reranker(
     *,
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="OpenAI 兼容端点地址",
+        help="OpenAI compatible endpoint URL",
     ),
-    model: str | None = typer.Option(
+    model_name: str | None = typer.Option(
         None,
         "--model",
-        help="Reranker 模型名",
+        help="Reranker model name",
     ),
     api_key: str | None = typer.Option(
         None,
         "--api-key",
-        help="API Key",
+        help="API key",
     ),
     extra_body: str | None = typer.Option(
         None,
         "--extra-body",
-        help="额外请求体字段(JSON 对象), 如 '{\"enable_thinking\": false}'",
+        help=(
+            "Extra request body fields (JSON object), "
+            "e.g., '{\"enable_thinking\": false}'"
+        ),
     ),
 ) -> None:
-    """配置 Reranker 服务, 未传入的选项保持不变."""
-    settings = load_settings()
+    """Update Reranker service configuration.
+
+    Options not provided will remain unchanged.
+    """
+    settings = _load_settings_or_exit()
     _update_model_provider(
         section=settings.reranker,
         base_url=base_url,
-        model=model,
+        model_name=model_name,
         api_key=api_key,
     )
     if extra_body is not None:
@@ -258,36 +258,45 @@ def set_reranker(
 # ======================================================================================
 # CLI: ``graphiti-cli config set falkordb``
 # ======================================================================================
-def set_falkordb(
+def config_set_falkordb(
     *,
     host: str | None = typer.Option(
         None,
         "--host",
-        help="FalkorDB 主机名",
+        help="FalkorDB host",
     ),
     port: int | None = typer.Option(
         None,
         "--port",
-        help="FalkorDB 端口",
+        help="FalkorDB port",
     ),
     username: str | None = typer.Option(
         None,
         "--username",
-        help="用户名, 无鉴权时传空字符串",
+        help="Username, pass an empty string if no authentication is required",
     ),
     password: str | None = typer.Option(
         None,
         "--password",
-        help="密码, 无鉴权时传空字符串",
+        help="Password, pass an empty string if no authentication is required",
     ),
     database: str | None = typer.Option(
         None,
         "--database",
-        help="图名",
+        help=(
+            "Graph name (default graph for the connection); "
+            "note that it is different from the --group-id in various commands. "
+            "--group-id is the data partition ID, "
+            "and when a non-default partition is passed, "
+            "the data falls into the graph with the same name."
+        ),
     ),
 ) -> None:
-    """配置 FalkorDB 连接, 未传入的选项保持不变."""
-    settings = load_settings()
+    """Configure FalkorDB connection.
+
+    Options not provided will remain unchanged.
+    """
+    settings = _load_settings_or_exit()
     section = settings.falkordb
     if host is not None:
         section.host = host
@@ -301,3 +310,25 @@ def set_falkordb(
         section.database = database
     save_settings(settings=settings)
     _echo_falkordb(section=section)
+
+
+# ======================================================================================
+# CLI: ``graphiti-cli config show``
+# ======================================================================================
+def config_show(
+    *,
+    reveal: bool = typer.Option(
+        False,  # noqa: FBT003
+        "--reveal",
+        help="Show full api_key/password",
+    ),
+) -> None:
+    """Show current configuration, masking api_key/password by default."""
+    settings = _load_settings_or_exit()
+    data: dict[str, Any] = settings.model_dump()
+    if not reveal:
+        for name in ("llm", "embedder", "reranker"):
+            data[name]["api_key"] = _mask_secret(value=data[name]["api_key"])
+        data["falkordb"]["password"] = _mask_secret(value=data["falkordb"]["password"])
+    typer.echo(f"# settings path: {SETTINGS_PATH}")
+    typer.echo(json.dumps(data, ensure_ascii=False, indent=2))

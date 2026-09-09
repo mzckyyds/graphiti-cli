@@ -14,7 +14,7 @@
 | `search_memory_facts` | `graphiti-cli search --only-edge` |
 | `get_entity_edge` | `graphiti-cli edge get` |
 | `delete_entity_edge` | `graphiti-cli edge delete` |
-| `add_triplet` | `graphiti-cli triplet add` |
+| `add_triplet` | `graphiti-cli triplet` |
 | `<未提供>` | `node add` / `node get` / `node list` / `node patch` / `node delete` / `edge add` / `edge get` / `edge list` / `edge patch` / `edge delete` |
 
 `patch` 系列与 `node`/`edge` 的直写增删改是 CLI 扩展, 基于 graphiti-core 的模型
@@ -63,7 +63,8 @@ uv run graphiti-cli episode list --group-id <GROUP_ID>
 # 查看单个 episode(按 UUID)
 uv run graphiti-cli episode get <EPISODE_UUID>
 
-# 删除(仅该 episode 独有的实体与关系会被级联删除)
+# 删除(其产出的关系与仅被其提及的实体会被级联删除; 注意: 经 node add
+# 直写的实体若只被该 episode 提及过, 也会一并删除)
 uv run graphiti-cli episode delete <EPISODE_UUID>
 ```
 
@@ -118,8 +119,10 @@ uv run graphiti-cli edge delete <EDGE_UUID>
 ### 事实三元组(绕过抽取流程)
 
 ```bash
-# 直写 source -> 关系 -> target, 节点不存在时经 LLM 解析合并
-uv run graphiti-cli triplet add "源实体" "关系" "事实描述" "目标实体"
+# 直写 source -> 关系 -> target, 节点不存在时经 LLM 解析合并;
+# 节点可带摘要/属性(--source-summary/--target-summary/--source-attribute/
+# --target-attribute), 边可带 --attribute, 写入前自动生成对应向量
+uv run graphiti-cli triplet "源实体" "目标实体" "关系" "事实描述"
 ```
 
 ## 图分区(group\_id)

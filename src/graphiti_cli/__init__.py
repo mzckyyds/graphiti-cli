@@ -1,3 +1,3 @@
-"""graphiti-cli: Graphiti 时序知识图谱 CLI."""
+"""graphiti-cli: CLI for Graphiti."""
 
 __version__ = "0.1.0"

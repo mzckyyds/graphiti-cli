@@ -4,7 +4,7 @@
 
 `graphiti-cli` — 一个面向 [Graphiti](https://github.com/getzep/graphiti)（时序知识图谱框架）的 CLI 工具，后端使用 FalkorDB（`graphiti-core[falkordb]`），模型走通用 OpenAI 兼容端点。
 
-代码结构：src 布局（`src/graphiti_cli/`），入口为 `__main__.py`（`uv run python -m graphiti_cli`）与 `pyproject.toml` 中 `[project.scripts]` 注册的 `graphiti-cli` 命令；`cli.py`（根命令）、`cmds/`（各类子命令统一存放, 每类一个模块, 如 `cmds/config.py`, `cmds/common.py` 存放共用工具）、`client.py`（Graphiti 实例构建）、`constants.py`（常量定义, 如 `RUNS_DIR`）、`settings.py`（配置读写）。
+代码结构：src 布局（`src/graphiti_cli/`），入口为 `__main__.py`（`uv run python -m graphiti_cli`）与 `pyproject.toml` 中 `[project.scripts]` 注册的 `graphiti-cli` 命令（指向 `graphiti_cli.__main__:app`）；`cli.py`（根命令 `app`, 组装各子命令）、`commands/`（各类子命令函数统一存放, 每类一个模块, 如 `commands/config.py`, `commands/_base.py` 存放共用工具）、`client.py`（Graphiti 实例构建）、`settings.py`（配置读写, 含 `RUNS_DIR` 等常量）。
 
 配置统一存放在 `~/.graphiti-cli/settings.json`（权限 600），所有命令从这里读取，不使用环境变量。
 
@@ -146,32 +146,6 @@ class BaseXXX:
 raise ValueError(f"Invalid value: {value!r}")
 ```
 
-### 符号规范
-
-注释、文档字符串与用户可见字符串中统一使用**半角符号**，分隔符后跟**一个空格**；行尾与字符串收尾不留尾随空格：
-
-| 全角 | 半角写法 |
-| --- | --- |
-| `，` `、` | `, ` |
-| `；` | `; ` |
-| `：` | `: ` |
-| `！` | `! ` |
-| `？` | `? ` |
-| `。` | `.` |
-| `…` | `...` |
-| `（）` | `()` |
-| `「」` | `""` |
-
-```python
-# Bad
-logger.info("登录成功！登录态已保存到 %s，下次可直接使用。")
-
-# Good
-logger.info("登录成功! 登录态已保存到 %s, 下次可直接使用.")
-```
-
-> NOTE: 运行时逻辑中需要匹配全角字符的正则（如页面文本 `IP属地：上海`）不受此规则约束，需保留全角字符并加 `NOTE` 注明。
-
 ### 日志规范
 
 使用 **module logger** + **lazy formatting** + **%r** + **key=value** 格式：
@@ -241,3 +215,29 @@ convert(value="1", encoding="utf-8")
 # 方法调用
 obj.convert(value="1", encoding="utf-8")
 ```
+
+### 符号规范
+
+注释、文档字符串与用户可见字符串中统一使用**半角符号**，分隔符后跟**一个空格**；行尾与字符串收尾不留尾随空格：
+
+| 全角 | 半角写法 |
+| --- | --- |
+| `，` `、` | `, ` |
+| `；` | `; ` |
+| `：` | `: ` |
+| `！` | `! ` |
+| `？` | `? ` |
+| `。` | `.` |
+| `…` | `...` |
+| `（）` | `()` |
+| `「」` | `""` |
+
+```python
+# Bad
+logger.info("登录成功！登录态已保存到 %r，下次可直接使用。")
+
+# Good
+logger.info("登录成功! 登录态已保存到 %r, 下次可直接使用.")
+```
+
+> NOTE: 运行时逻辑中需要匹配全角字符的正则（如页面文本 `IP属地：上海`）不受此规则约束，需保留全角字符并加 `NOTE` 注明。

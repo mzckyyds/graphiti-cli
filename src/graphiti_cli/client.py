@@ -1,9 +1,7 @@
-"""Graphiti 实例的构建逻辑, 供各子命令复用.
+"""Build `Graphiti` instance according to the configuration.
 
-模型全部走 OpenAI 兼容端点, 配置统一从 ``~/.graphiti-cli/settings.json`` 读取:
-- LLM:      通用 OpenAIGenericClient(json_schema 结构化输出, extra_body 可注入)
-- Embedder: 通用 OpenAIEmbedder
-- Reranker: 通用 OpenAIRerankerClient(logprobs 零样本打分, extra_body 可注入)
+All models use OpenAI-compatible endpoints.
+The configuration is uniformly read from ``~/.graphiti-cli/settings.json``:
 """
 
 from __future__ import annotations
@@ -31,20 +29,10 @@ def _validate_config(
     label: str,
     hint: str,
 ) -> None:
-    """校验配置项已填写.
-
-    Args:
-        value: 配置项当前值.
-        label: 配置项名称, 用于报错.
-        hint: 对应的修复命令.
-
-    Raises:
-        ValueError: 配置项为空时.
-
-    """
     if len(value.strip()) == 0:
         raise ValueError(
-            f"配置缺失: {label!r}, 请先运行 graphiti-cli config set {hint}"
+            f"Missing configuration: {label!r}, "
+            f"please `run graphiti-cli config set {hint}`"
         )
 
 
@@ -54,20 +42,6 @@ def _build_openai_client(
     base_url: str,
     extra_body: dict[str, Any],
 ) -> AsyncOpenAI:
-    """构建注入了 extra_body 的 AsyncOpenAI 客户端.
-
-    通用客户端没有 extra_body 注入口子, 这里在 client 层包装 create 方法,
-    某些大模型通过 extra_body 接收额外参数来启停某些功能, 例如关闭深度思考.
-
-    Args:
-        api_key: API Key.
-        base_url: OpenAI 兼容端点地址.
-        extra_body: 额外的请求体字段, 会在每次请求时注入.
-
-    Returns:
-        注入 extra_body 后的 AsyncOpenAI 客户端.
-
-    """
     client = AsyncOpenAI(api_key=api_key, base_url=base_url)
     original_create = client.chat.completions.create
 
@@ -86,30 +60,28 @@ def build_graphiti(
     *,
     settings: Settings | None = None,
 ) -> Graphiti:
-    """按配置构建 Graphiti 实例.
-
-    LLM/Embedder/Reranker 三个配置段各自独立, 互不复用.
+    """Build a Graphiti instance according to the configuration.
 
     Args:
-        settings: 全局配置, 缺省时从配置文件加载.
+        settings: global configuration, loaded from the configuration file if `None`
 
     Returns:
-        就绪的 Graphiti 实例.
+        A ready-to-use Graphiti instance.
 
     Raises:
-        ValueError: 任一配置段的必填项缺失时.
+        ValueError: Raised when any required configuration section is missing.
 
     """
     cfg = settings or load_settings()
 
-    # base_url/model/api_key 校验
+    # validate base_url/model/api_key
     _validate_config(
         value=cfg.llm.base_url,
         label="llm.base_url",
         hint="llm --base-url <URL>",
     )
     _validate_config(
-        value=cfg.llm.model,
+        value=cfg.llm.model_name,
         label="llm.model",
         hint="llm --model <NAME>",
     )
@@ -124,7 +96,7 @@ def build_graphiti(
         hint="embedder --base-url <URL>",
     )
     _validate_config(
-        value=cfg.embedder.model,
+        value=cfg.embedder.model_name,
         label="embedder.model",
         hint="embedder --model <NAME>",
     )
@@ -139,7 +111,7 @@ def build_graphiti(
         hint="reranker --base-url <URL>",
     )
     _validate_config(
-        value=cfg.reranker.model,
+        value=cfg.reranker.model_name,
         label="reranker.model",
         hint="reranker --model <NAME>",
     )
@@ -149,7 +121,7 @@ def build_graphiti(
         hint="reranker --api-key <KEY>",
     )
 
-    # Driver/LLM/Embedder/Reranker 客户端
+    # Driver/LLM/Embedder/Reranker clients
     driver = FalkorDriver(
         host=cfg.falkordb.host,
         port=cfg.falkordb.port,
@@ -161,8 +133,8 @@ def build_graphiti(
         config=LLMConfig(
             api_key=cfg.llm.api_key,
             base_url=cfg.llm.base_url,
-            model=cfg.llm.model,
-            small_model=cfg.llm.model,
+            model=cfg.llm.model_name,
+            small_model=cfg.llm.model_name,
         ),
         client=_build_openai_client(
             api_key=cfg.llm.api_key,
@@ -174,7 +146,7 @@ def build_graphiti(
         config=OpenAIEmbedderConfig(
             api_key=cfg.embedder.api_key,
             base_url=cfg.embedder.base_url,
-            embedding_model=cfg.embedder.model,
+            embedding_model=cfg.embedder.model_name,
             embedding_dim=cfg.embedder.dim,
         ),
     )
@@ -182,7 +154,7 @@ def build_graphiti(
         config=LLMConfig(
             api_key=cfg.reranker.api_key,
             base_url=cfg.reranker.base_url,
-            model=cfg.reranker.model,
+            model=cfg.reranker.model_name,
         ),
         client=_build_openai_client(
             api_key=cfg.reranker.api_key,
